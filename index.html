@@ -64,7 +64,7 @@
     .lang-btn{padding:7px 12px;border-radius:12px;font-size:13px;min-width:74px}
     .main{display:grid;grid-template-columns:368px minmax(0,1.42fr) minmax(300px,0.78fr);gap:14px;align-items:start}
     .stack{display:grid;gap:14px}
-    .left-stack{max-height:calc(100vh - 126px);overflow-y:auto;padding-right:4px;}
+    .left-stack{position:sticky;top:12px;max-height:calc(100vh - 28px);overflow-y:auto;padding-right:4px;align-self:start;}
     .left-stack::-webkit-scrollbar{width:8px}
     .left-stack::-webkit-scrollbar-thumb{background:rgba(148,163,184,.35);border-radius:999px}
 
@@ -239,6 +239,20 @@
       cursor:pointer;
       overflow:hidden;
       position:relative;
+      transition:border-color .18s ease, box-shadow .18s ease, background .18s ease, transform .18s ease;
+    }
+    .image-dropzone:hover{
+      border-color:rgba(79,70,229,.46);
+      background:rgba(245,247,255,.96);
+    }
+    .image-dropzone.is-active,
+    .image-dropzone:focus,
+    .image-dropzone:focus-visible{
+      border-color:rgba(79,70,229,.72);
+      background:linear-gradient(180deg, rgba(238,242,255,.98), rgba(255,255,255,.98));
+      box-shadow:0 0 0 4px rgba(99,102,241,.14), 0 10px 24px rgba(79,70,229,.10);
+      outline:none;
+      transform:translateY(-1px);
     }
     .image-dropzone.has-image{padding:0;border-style:solid;background:#fff}
     .image-dropzone img{
@@ -689,6 +703,36 @@ function wholeTextToLatex(text){
   s=s.replace(/\^([a-zA-Z0-9])/g,'^{$1}');
   return 'f(x,y)=' + s;
 }
+function cleanupSupportCandidate(text){
+  let s=normalizeMathText((text||'').trim())
+    .replace(/[：]/g,':')
+    .replace(/[，]/g,',')
+    .replace(/[；]/g,';')
+    .replace(/[（]/g,'(')
+    .replace(/[）]/g,')')
+    .replace(/[≤]/g,'<=')
+    .replace(/[≥]/g,'>=')
+    .replace(/[﹣−—]/g,'-')
+    .replace(/\\/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+  if(!s) return '';
+  s=s.replace(/^(?:support|supp|定义域|支持集|其中|where|for)\s*[:：]?\s*/i,'');
+  s=s.replace(/[,;，；]?\s*(?:其他|otherwise).*$/i,'').trim();
+  if(!s) return '';
+  const parts=s.split(/[;,]/).map(x=>x.trim()).filter(Boolean);
+  const dedup=[];
+  const seen=new Set();
+  parts.forEach(part=>{
+    const key=part.replace(/\s+/g,'');
+    if(!seen.has(key)){
+      seen.add(key);
+      dedup.push(part);
+    }
+  });
+  return dedup.join(', ');
+}
+
 function parseProblemText(text){
   const raw=(text||'').trim();
   if(!raw) return {formula:'',support:'',message:t('parseEmpty')};
@@ -718,21 +762,14 @@ function parseProblemText(text){
     formula=normalizeFormulaForInput('f(x,y)=' + formulaMatch[1].trim());
   }
 
-  const supportPatterns=[
-    /-?\d+(?:\.\d+)?\s*(?:<=|<)\s*[xy](?:\^\d+)?\s*(?:<=|<)\s*[xy](?:\^\d+)?/g,
-    /[xy](?:\^\d+)?\s*(?:<=|<)\s*[xy](?:\^\d+)?\s*(?:<=|<)\s*-?\d+(?:\.\d+)?/g,
-    /[xy](?:\^\d+)?\s*(?:<=|<|>=|>)\s*[xy](?:\^\d+)?\s*(?:<=|<|>=|>)\s*[xy](?:\^\d+)?/g,
-    /[xy](?:\^\d+)?\s*(?:<=|<|>=|>)\s*-?\d+(?:\.\d+)?/g,
-    /-?\d+(?:\.\d+)?\s*(?:<=|<|>=|>)\s*[xy](?:\^\d+)?/g
-  ];
+  if(formulaMatch){
+    const tail=cleanupSupportCandidate(cleaned.slice(formulaMatch.index + formulaMatch[0].length));
+    if(tail && /[xy]/i.test(tail)) support=tail;
+  }
 
-  const supportHits=[];
-  supportPatterns.forEach(re=>{
-    const ms=cleaned.match(re);
-    if(ms) supportHits.push(...ms);
-  });
-  if(supportHits.length){
-    support=simplifySupportText([...new Set(supportHits.map(s=>s.replace(/\s+/g,'')))].join(', '));
+  if(!support){
+    const fallbackMatches=cleaned.match(/(?:x|y|\(|-?\d)[^,;]*(?:<=|>=|<|>)[^,;]*/g);
+    if(fallbackMatches) support=cleanupSupportCandidate(fallbackMatches.join(', '));
   }
 
   if(formula && support){
@@ -777,6 +814,7 @@ const I18N = {
     imageDropHint: '点击此区域后粘贴图片，或用下方按钮选择图片',
     imagePickBtn: '选择图片', imageRecognizeBtn: 'AI 识别', imageClearBtn: '清空图片',
     imageStatusDefault: '点击此区域后可直接粘贴截图；选择本地图片请使用下方按钮。',
+    imageStatusFocused: '已选中图片区，现在可以直接粘贴截图，也可以继续选择本地图片。',
     imageStatusReady: '图片已就绪，点击“AI 识别”即可自动提取。',
     imageStatusNeedImage: '请先上传图片或粘贴图片。',
     imageStatusWorking: '正在识别图片中的函数信息…',
@@ -822,7 +860,7 @@ const I18N = {
     validStatus: '当前设置下，这个函数近似满足二维概率密度函数的两个核心条件：非负、总积分约为 1。3D 图中黄色底面表示原始积分区域 <code>D</code>，粉色底面表示 <code>D∩support</code>，半透明粉色侧壁从交集底面连接到概率密度曲面。',
     invalidStatus: '当前函数可能不是合法的二维概率密度函数，或者绘图范围还没有覆盖主要概率质量区域。3D 图仍会显示原始积分区域、交集底面和对应的半透明封闭体。',
     updated: '图像已更新。继续修改后，请再次点击“生成图像”。',
-    fixInput: '请修正输入后，再点击“生成图像”。当前保留上一次成功的图像。',
+    fixInput: '暂时无法生成图像。请手动检查并修改公式、支持集和积分区域后，再点击“生成图像”。当前仍保留上一次成功的图像。',
     cleared: '已清空文本。'
   },
   en: {
@@ -880,7 +918,7 @@ const I18N = {
     validStatus: 'Under the current settings, the function approximately satisfies the two key conditions for a bivariate probability density: nonnegativity and total integral close to 1. In the 3D plot, the yellow base shows the original region <code>D</code>, the pink base shows <code>D∩support</code>, and the translucent pink side walls connect the effective base region to the density surface.',
     invalidStatus: 'The current function may not be a valid bivariate density, or the plotting window may not cover most of the probability mass. The 3D plot still shows the original region, the intersection base, and the corresponding translucent solid.',
     updated: 'The plot has been updated. After making further changes, click “Generate plot” again.',
-    fixInput: 'Please correct the input and click “Generate plot” again. The previous successful plot has been preserved.',
+    fixInput: 'The plot could not be generated for now. Please check and revise the formula, support, and integration region manually, then click “Generate plot” again. The previous successful plot is still being kept.',
     cleared: 'Text cleared.'
   }
 };
@@ -988,6 +1026,7 @@ function setRecognitionImage(dataUrl){
   if(recognitionImageDataUrl){
     els.imageDropzone.classList.add('has-image');
     els.imageDropzone.innerHTML='<img alt="识别图片预览" src="'+recognitionImageDataUrl+'" />';
+    els.imageDropzone.classList.remove('is-active');
     setImageStatus(t('imageStatusReady'));
   }else{
     els.imageDropzone.classList.remove('has-image');
@@ -1057,6 +1096,7 @@ async function handleImageFile(file){
   if(!file) return;
   const dataUrl=await readFileAsDataUrl(file);
   setRecognitionImage(dataUrl);
+  setDropzoneActive(false);
 }
 function findImageInClipboard(event){
   const items=(event.clipboardData&&event.clipboardData.items)?Array.from(event.clipboardData.items):[];
@@ -1153,11 +1193,21 @@ function renderNow(){
   }
 }
 
+function setDropzoneActive(isActive){
+  if(!els.imageDropzone) return;
+  els.imageDropzone.classList.toggle('is-active', !!isActive);
+  if(!recognitionImageDataUrl){
+    setImageStatus(isActive ? t('imageStatusFocused') : t('imageStatusDefault'));
+  }
+}
+
 els.pickImageBtn.addEventListener('click',()=>els.imageInput.click());
 els.imageInput.addEventListener('change',async (e)=>{const file=e.target.files&&e.target.files[0]; if(file) await handleImageFile(file);});
-els.clearImageBtn.addEventListener('click',()=>{setRecognitionImage(''); els.imageInput.value=''; setImageStatus(t('imageStatusCleared'));});
+els.clearImageBtn.addEventListener('click',()=>{setRecognitionImage(''); els.imageInput.value=''; setDropzoneActive(false); setImageStatus(t('imageStatusCleared'));});
 els.recognizeBtn.addEventListener('click',recognizeCurrentImage);
-els.imageDropzone.addEventListener('click',()=>{els.imageDropzone.focus(); setImageStatus(t('imageStatusDefault'));});
+els.imageDropzone.addEventListener('click',()=>{els.imageDropzone.focus(); setDropzoneActive(true);});
+els.imageDropzone.addEventListener('focus',()=>setDropzoneActive(true));
+els.imageDropzone.addEventListener('blur',()=>setDropzoneActive(false));
 els.imageDropzone.addEventListener('dragover',(e)=>{e.preventDefault();});
 els.imageDropzone.addEventListener('drop',async (e)=>{e.preventDefault(); const file=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(file&&file.type.startsWith('image/')) await handleImageFile(file);});
 els.imageDropzone.addEventListener('paste',async (e)=>{const file=findImageInClipboard(e); if(file){e.preventDefault(); await handleImageFile(file);}});
