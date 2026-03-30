@@ -118,7 +118,7 @@
       padding:9px 12px;
       font-size:13px;
       font-weight:700;
-      cursor:pointer;
+      cursor:default;
       color:#12213d;
       transition:transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
       box-shadow:0 3px 8px rgba(15,23,42,.04);
@@ -230,7 +230,7 @@
       text-align:center;
       padding:12px;
       color:var(--muted);
-      cursor:pointer;
+      cursor:default;
       overflow:hidden;
       position:relative;
     }
@@ -293,8 +293,8 @@
 
         <div class="image-card">
           <label id="imageToolsTitle">图片识别</label>
-          <div id="imageDropzone" class="image-dropzone" tabindex="0" title="点击上传，或直接粘贴图片">
-            <div class="empty-text" id="imageDropHint">点击上传图片，或直接粘贴图片到这里</div>
+          <div id="imageDropzone" class="image-dropzone" tabindex="0" title="点击此处后可直接粘贴剪贴板中的图片；选择本地图片请用下方按钮">
+            <div class="empty-text" id="imageDropHint">点击此处后粘贴图片，或使用下方按钮选择图片</div>
           </div>
           <input id="imageInput" type="file" accept="image/*" style="display:none" />
           <div class="image-toolbar">
@@ -600,9 +600,9 @@ const I18N = {
     pageSub: '面向课堂演示与在线分享：用交互图形直观理解二维概率密度、积分区域与概率体积。',
     panelInputTitle: '输入与公式',
     imageToolsTitle: '图片识别',
-    imageDropHint: '点击上传图片，或直接粘贴图片到这里',
+    imageDropHint: '点击此处后粘贴图片，或使用下方按钮选择图片',
     imagePickBtn: '选择图片', imageRecognizeBtn: 'AI 识别', imageClearBtn: '清空图片',
-    imageStatusDefault: '支持上传图片，也支持在此区域直接粘贴截图。',
+    imageStatusDefault: '点击此区域后可直接粘贴截图；选择本地图片请使用下方“选择图片”按钮。',
     imageStatusReady: '图片已就绪，点击“AI 识别”即可自动提取。',
     imageStatusNeedImage: '请先上传图片或粘贴图片。',
     imageStatusWorking: '正在识别图片中的函数信息…',
@@ -624,7 +624,7 @@ const I18N = {
     labelGrid: '网格密度', renderBtn: '生成图像', autoRangeBtn: '自动推荐范围',
     editorMsgDefault: '修改完后，请点击“生成图像”。',
     howToTitle: '如何使用',
-    howToText: '1. 可上传图片、粘贴图片，或直接粘贴函数说明文本。<br>2. AI 会尝试提取密度函数、支持集与积分区域，识别后仍可继续手动修改。<br>3. 点击“生成图像”，在同一屏中同时观察左侧输入、中间 3D 曲面与右侧 xOy 平面投影。',
+    howToText: '1. 可点击图片区后直接粘贴图片，也可使用下方按钮选择图片，或直接粘贴函数说明文本。<br>2. AI 会尝试提取密度函数、支持集与积分区域，识别后仍可继续手动修改。<br>3. 点击“生成图像”，在同一屏中同时观察左侧输入、中间 3D 曲面与右侧 xOy 平面投影。',
     surfaceTitle: '三维概率密度曲面、底面区域与积分主体',
     legendBlue: '蓝色曲面：整体密度曲面', legendYellow: '黄色底面：原始积分区域 D 在 xOy 平面上的投影',
     legendPinkBase: '粉色底面：D∩support 在 xOy 平面上的投影', legendPinkWall: '半透明粉色侧壁：从交集底面连接到概率密度曲面的侧壁',
@@ -658,9 +658,9 @@ const I18N = {
     pageSub: 'Understand bivariate densities, integration regions, and probability volume through interactive graphics.',
     panelInputTitle: 'Inputs and Formulas',
     imageToolsTitle: 'Image recognition',
-    imageDropHint: 'Click to upload an image, or paste an image here',
+    imageDropHint: 'Click here and paste an image, or use the button below to choose one',
     imagePickBtn: 'Choose image', imageRecognizeBtn: 'AI extract', imageClearBtn: 'Clear image',
-    imageStatusDefault: 'You can upload an image or paste a screenshot directly into this area.',
+    imageStatusDefault: 'Click this area and paste a screenshot directly; use the button below to choose a local image.',
     imageStatusReady: 'The image is ready. Click “AI extract” to parse it.',
     imageStatusNeedImage: 'Please upload or paste an image first.',
     imageStatusWorking: 'Extracting the function information from the image…',
@@ -682,7 +682,7 @@ const I18N = {
     labelGrid: 'Grid resolution', renderBtn: 'Generate plot', autoRangeBtn: 'Suggest plot range',
     editorMsgDefault: 'After making changes, click “Generate plot”.',
     howToTitle: 'How to use',
-    howToText: '1. Upload an image, paste an image, or paste a function description directly.<br>2. The AI will try to extract the density, support, and integration region; you can still revise them manually afterward.<br>3. Click “Generate plot” to view the inputs on the left, the 3D surface in the center, and the xy-plane projection on the right at the same time.',
+    howToText: '1. Click the image area and paste an image, or use the button below to choose one; you can also paste a function description directly.<br>2. The AI will try to extract the density, support, and integration region; you can still revise them manually afterward.<br>3. Click “Generate plot” to view the inputs on the left, the 3D surface in the center, and the xy-plane projection on the right at the same time.',
     surfaceTitle: '3D Density Surface, Base Region, and Probability Solid',
     legendBlue: 'Blue surface: the full density surface', legendYellow: 'Yellow base: projection of the original region D onto the xy-plane',
     legendPinkBase: 'Pink base: projection of D∩support onto the xy-plane', legendPinkWall: 'Translucent pink side walls: connect the effective base region to the density surface',
@@ -852,12 +852,13 @@ function handleRecognizedPayload(payload){
   if(formula) els.formula.value=formula;
   if(support) els.support.value=support;
   if(region) els.region.value=region;
-  if(formula||support||region){
+  if(sourceText){
+    els.problemText.value=sourceText;
+  }else if(formula||support||region){
     const lines=[];
     if(formula) lines.push(formula);
     if(support) lines.push(support);
     if(region) lines.push(region);
-    else if(sourceText && sourceText.length<=120) lines.push(sourceText);
     els.problemText.value=lines.join(', ');
   }
   renderLatexBox();
@@ -990,7 +991,6 @@ els.pickImageBtn.addEventListener('click',()=>els.imageInput.click());
 els.imageInput.addEventListener('change',async (e)=>{const file=e.target.files&&e.target.files[0]; if(file) await handleImageFile(file);});
 els.clearImageBtn.addEventListener('click',()=>{setRecognitionImage(''); els.imageInput.value=''; setImageStatus(t('imageStatusCleared'));});
 els.recognizeBtn.addEventListener('click',recognizeCurrentImage);
-els.imageDropzone.addEventListener('click',()=>els.imageInput.click());
 els.imageDropzone.addEventListener('dragover',(e)=>{e.preventDefault();});
 els.imageDropzone.addEventListener('drop',async (e)=>{e.preventDefault(); const file=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(file&&file.type.startsWith('image/')) await handleImageFile(file);});
 els.imageDropzone.addEventListener('paste',async (e)=>{const file=findImageInClipboard(e); if(file){e.preventDefault(); await handleImageFile(file);}});
