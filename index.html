@@ -550,72 +550,59 @@ function wholeTextToLatex(text){
 function parseProblemText(text){
   const raw=(text||'').trim();
   if(!raw) return {formula:'',support:'',message:t('parseEmpty')};
-  let cleaned=raw.replace(/[：]/g,':').replace(/[，]/g,',').replace(/[；]/g,';').replace(/[（]/g,'(').replace(/[）]/g,')').replace(/[≤]/g,'<=').replace(/[≥]/g,'>=').replace(/[﹣−—]/g,'-').replace(/\/g,'').replace(/\s+/g,' ').trim();
+
+  let cleaned=raw
+    .replace(/[：]/g,':')
+    .replace(/[，]/g,',')
+    .replace(/[；]/g,';')
+    .replace(/[（]/g,'(')
+    .replace(/[）]/g,')')
+    .replace(/[≤]/g,'<=')
+    .replace(/[≥]/g,'>=')
+    .replace(/[﹣−—]/g,'-')
+    .replace(/\\/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+
   cleaned=cleaned.replace(/f\s*\(\s*x\s*,\s*y\s*\)\s*=\s*0\s*[;,，]?\s*其他.*$/i,'');
   cleaned=cleaned.replace(/[,;，；]?\s*其他\s*(为)?\s*0.*$/i,'');
-  let formula='',support='';
+  cleaned=cleaned.replace(/[,;，；]?\s*otherwise.*$/i,'');
 
-  function looksLikeSupportPart(part){
-    const s=(part||'').replace(/\s+/g,'').replace(/[≤]/g,'<=').replace(/[≥]/g,'>=');
-    if(!s) return false;
-    if(/[<>]=?|<=|>=/.test(s) && /[xy]/i.test(s)) return true;
-    if(/^(x|y)\^?\d*<=?(x|y)$/.test(s)) return true;
-    return false;
-  }
+  let formula='';
+  let support='';
 
-  function extractFormulaAndSupport(rhs){
-    const normalized=(rhs||'').trim();
-    if(!normalized) return {formula:'', support:''};
-    const parts=normalized.split(/[,;，；]/).map(s=>s.trim()).filter(Boolean);
-    if(parts.length<=1) return {formula:normalized, support:''};
-    let formulaPart=parts[0];
-    let supportParts=[];
-    for(let i=1;i<parts.length;i++){
-      const part=parts[i];
-      if(looksLikeSupportPart(part)) supportParts.push(part);
-      else formulaPart += ', ' + part;
-    }
-    return {formula:formulaPart.trim(), support:supportParts.join(', ').trim()};
-  }
-
-  const formulaMatch=cleaned.match(/f\s*[\(\[]?\s*x\s*,\s*y\s*[\)\]]?\s*[:=]\s*([^;；]+)/i)||cleaned.match(/f\s*[\(\[]?\s*x\s*,\s*y\s*[\)\]]?\s*=\s*([^;；]+)/i);
+  const formulaMatch=cleaned.match(/f\s*\(\s*x\s*,\s*y\s*\)\s*=\s*([^,;]+)(?=\s*[,;]|$)/i);
   if(formulaMatch){
-    const extracted=extractFormulaAndSupport(formulaMatch[1]);
-    if(extracted.formula) formula='f(x,y)='+extracted.formula;
-    if(extracted.support) support=extracted.support;
+    formula='f(x,y)=' + formulaMatch[1].trim();
   }
 
-  const clauses=[];
-  const pats=[
-    /-?\d+(?:\.\d+)?\s*<=?\s*x\s*<=?\s*-?\d+(?:\.\d+)?/ig,
-    /-?\d+(?:\.\d+)?\s*<=?\s*y\s*<=?\s*-?\d+(?:\.\d+)?/ig,
-    /-?\d+(?:\.\d+)?\s*<\s*x\s*<\s*-?\d+(?:\.\d+)?/ig,
-    /-?\d+(?:\.\d+)?\s*<\s*y\s*<\s*-?\d+(?:\.\d+)?/ig,
-    /x\s*\^\s*\d+(?:\.\d+)?\s*<=?\s*y\s*<=?\s*x/ig,
-    /x\s*\^\s*\d+(?:\.\d+)?\s*<\s*y\s*<\s*x/ig,
-    /-?\d+(?:\.\d+)?\s*<=?\s*y\s*<=?\s*x/ig,
-    /-?\d+(?:\.\d+)?\s*<\s*y\s*<\s*x/ig,
-    /-?\d+(?:\.\d+)?\s*<=?\s*x\s*<=?\s*y/ig,
-    /-?\d+(?:\.\d+)?\s*<\s*x\s*<\s*y/ig,
-    /x\s*[<>]=?\s*-?\d+(?:\.\d+)?/ig,
-    /y\s*[<>]=?\s*-?\d+(?:\.\d+)?/ig,
-    /x\s*<=?\s*y/ig,
-    /y\s*<=?\s*x/ig
+  const supportPatterns=[
+    /-?\d+(?:\.\d+)?\s*(?:<=|<)\s*[xy](?:\^\d+)?\s*(?:<=|<)\s*[xy](?:\^\d+)?/g,
+    /[xy](?:\^\d+)?\s*(?:<=|<)\s*[xy](?:\^\d+)?\s*(?:<=|<)\s*-?\d+(?:\.\d+)?/g,
+    /[xy](?:\^\d+)?\s*(?:<=|<|>=|>)\s*[xy](?:\^\d+)?\s*(?:<=|<|>=|>)\s*[xy](?:\^\d+)?/g,
+    /[xy](?:\^\d+)?\s*(?:<=|<|>=|>)\s*-?\d+(?:\.\d+)?/g,
+    /-?\d+(?:\.\d+)?\s*(?:<=|<|>=|>)\s*[xy](?:\^\d+)?/g
   ];
-  pats.forEach(p=>{const ms=cleaned.match(p); if(ms) clauses.push(...ms);});
-  if(clauses.length){
-    const uniq=[...new Set(clauses.map(s=>s.replace(/\s+/g,' ').trim()))];
-    const filtered=uniq.filter(item=>!uniq.some(other=>other!==item && other.includes(item)));
-    support=filtered.join(', ');
+
+  const supportHits=[];
+  supportPatterns.forEach(re=>{
+    const ms=cleaned.match(re);
+    if(ms) supportHits.push(...ms);
+  });
+  if(supportHits.length){
+    support=[...new Set(supportHits.map(s=>s.replace(/\s+/g,'')))].join(', ');
   }
+
   if(formula && support){
-    const normalizedSupport=support.replace(/\s+/g,' ').trim();
-    formula=formula.replace(new RegExp(`\s*[,;，；]\s*${normalizedSupport.replace(/[.*+?^${}()|[\]\]/g,'\$&')}$`),'').trim();
+    const escaped=support.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    formula=formula.replace(new RegExp('\\s*[,;，；]\\s*'+escaped+'$'),'').trim();
   }
+
   let message=t('parseMessage');
   if(!formula) message=t('parseNoFormula');
   return {formula,support,message};
 }
+
 function renderLatexBox(){
   const box=els.latexBox; const raw=els.formula.value.trim();
   if(!raw){box.textContent=''; return;}
