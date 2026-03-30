@@ -825,37 +825,9 @@ function setRecognitionImage(dataUrl){
 function readFileAsDataUrl(file){
   return new Promise((resolve,reject)=>{
     const reader=new FileReader();
-    reader.onload=async()=>{
-      try{
-        const compressed=await compressImageDataUrl(String(reader.result||''));
-        resolve(compressed);
-      }catch(err){
-        resolve(reader.result);
-      }
-    };
+    reader.onload=()=>resolve(reader.result);
     reader.onerror=()=>reject(new Error('read-image-failed'));
     reader.readAsDataURL(file);
-  });
-}
-async function compressImageDataUrl(dataUrl){
-  if(!dataUrl||typeof dataUrl!=='string'||!dataUrl.startsWith('data:image/')) return dataUrl;
-  const img=await loadImageFromDataUrl(dataUrl);
-  const maxSide=1600;
-  const scale=Math.min(1,maxSide/Math.max(img.naturalWidth||img.width||1,img.naturalHeight||img.height||1));
-  const w=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));
-  const h=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));
-  const canvas=document.createElement('canvas');
-  canvas.width=w; canvas.height=h;
-  const ctx=canvas.getContext('2d');
-  ctx.drawImage(img,0,0,w,h);
-  return canvas.toDataURL('image/jpeg',0.9);
-}
-function loadImageFromDataUrl(dataUrl){
-  return new Promise((resolve,reject)=>{
-    const img=new Image();
-    img.onload=()=>resolve(img);
-    img.onerror=()=>reject(new Error('image-load-failed'));
-    img.src=dataUrl;
   });
 }
 function normalizeRecognizedFormula(value){
@@ -873,17 +845,25 @@ function extractJsonObject(text){
   throw new Error('json-parse-failed');
 }
 function handleRecognizedPayload(payload){
-  const formula=normalizeRecognizedFormula(payload.formula_raw||payload.formula_expr||payload.formula||'');
+  const formula=normalizeRecognizedFormula(payload.formula_expr||payload.formula_raw||payload.formula||'');
   const support=(payload.support||'').trim();
   const region=(payload.region||'').trim();
   const sourceText=(payload.source_text||'').trim();
   if(formula) els.formula.value=formula;
   if(support) els.support.value=support;
   if(region) els.region.value=region;
-  if(sourceText) els.problemText.value=sourceText;
+  if(formula||support||region){
+    const lines=[];
+    if(formula) lines.push(formula);
+    if(support) lines.push(support);
+    if(region) lines.push(region);
+    else if(sourceText && sourceText.length<=120) lines.push(sourceText);
+    els.problemText.value=lines.join(', ');
+  }
   renderLatexBox();
-  els.editorMsg.textContent=region?t('imageStatusSuccess'):t('imageStatusNoRegion');
-  setImageStatus(region?t('imageStatusSuccess'):t('imageStatusNoRegion'),'success');
+  const status=(payload.needs_review? '识别完成，已回填，但建议你核对符号与区间。' : (region?t('imageStatusSuccess'):t('imageStatusNoRegion')));
+  els.editorMsg.textContent=status;
+  setImageStatus(status,'success');
 }
 async function recognizeCurrentImage(){
   if(!recognitionImageDataUrl){
@@ -898,13 +878,7 @@ async function recognizeCurrentImage(){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({imageDataUrl:recognitionImageDataUrl})
     });
-    const raw=await response.text();
-    let data={};
-    try{ data=raw?JSON.parse(raw):{}; }
-    catch(parseErr){
-      const preview=(raw||'').replace(/\s+/g,' ').slice(0,120);
-      throw new Error('server-non-json: '+preview);
-    }
+    const data=await response.json();
     if(!response.ok) throw new Error(data&&data.error?data.error:'request-failed');
     handleRecognizedPayload(data);
   }catch(err){
