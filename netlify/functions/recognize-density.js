@@ -171,6 +171,129 @@ function ensureString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+
+function insertImplicitMultiplication(expr) {
+  let s = (expr || '').trim();
+  if (!s) return '';
+  s = s.replace(/\s+/g, '');
+  for (let i = 0; i < 8; i++) {
+    const prev = s;
+    s = s.replace(/(\d)([xy])/gi, '$1*$2');
+    s = s.replace(/(\d)\(/g, '$1*(');
+    s = s.replace(/([xy])\(/gi, '$1*(');
+    s = s.replace(/\)(\d|[xy])/gi, ')*$1');
+    s = s.replace(/([xy])([xy])/gi, '$1*$2');
+    s = s.replace(/\)\(/g, ')*(');
+    if (s === prev) break;
+  }
+  return s;
+}
+
+function canonicalizeSimpleClause(clause) {
+  const s = ensureString(clause).replace(/≤/g, '<=').replace(/≥/g, '>=').replace(/\s+/g, '');
+  if (!s) return '';
+  let m = s.match(/^(-?\d+(?:\.\d+)?)(<=|<)(x|y)$/i);
+  if (m) return `${m[1]}${m[2]}${m[3].toLowerCase()}`;
+  m = s.match(/^(x|y)(<=|<)(-?\d+(?:\.\d+)?)$/i);
+  if (m) return `${m[1].toLowerCase()}${m[2]}${m[3]}`;
+  m = s.match(/^(x|y)(>=|>)(-?\d+(?:\.\d+)?)$/i);
+  if (m) return `${m[3]}${m[2] === '>=' ? '<=' : '<'}${m[1].toLowerCase()}`;
+  m = s.match(/^(-?\d+(?:\.\d+)?)(>=|>)(x|y)$/i);
+  if (m) return `${m[3].toLowerCase()}${m[2] === '>=' ? '<=' : '<'}${m[1]}`;
+  return s;
+}
+
+function extractImpliedSimpleClauses(clause) {
+  const compact = canonicalizeSimpleClause(clause);
+  const exprs = compact.split(/<=|>=|<|>/g);
+  const ops = compact.match(/<=|>=|<|>/g) || [];
+  if (ops.length < 2) return [];
+  const out = [];
+  for (let i = 0; i < ops.length; i++) out.push(`${exprs[i]}${ops[i]}${exprs[i + 1]}`);
+  return out;
+}
+
+function chooseBetterLower(current, next) {
+  if (!current) return next;
+  if (Number(next.num) > Number(current.num)) return next;
+  if (Number(next.num) < Number(current.num)) return current;
+  if (current.op === '<' && next.op === '<=') return current;
+  return next;
+}
+
+function chooseBetterUpper(current, next) {
+  if (!current) return next;
+  if (Number(next.num) < Number(current.num)) return next;
+  if (Number(next.num) > Number(current.num)) return current;
+  if (current.op === '<' && next.op === '<=') return current;
+  return next;
+}
+
+function simplifySupportText(value) {
+  let s = ensureString(value);
+  if (!s) return '';
+  s = s.replace(/[；;]/g, ',').replace(/，/g, ',');
+  s = s.replace(/\\le/g, '<=').replace(/\\ge/g, '>=');
+  s = s.replace(/≤/g, '<=').replace(/≥/g, '>=');
+  let clauses = s.split(/[;,]/).map(canonicalizeSimpleClause).filter(Boolean);
+  clauses = [...new Set(clauses)];
+  const implied = new Set();
+  clauses.forEach(clause => extractImpliedSimpleClauses(clause).forEach(x => implied.add(canonicalizeSimpleClause(x))));
+  clauses = clauses.filter(clause => {
+    const ops = clause.match(/<=|>=|<|>/g) || [];
+    return ops.length >= 2 || !implied.has(clause);
+  });
+
+  const consumed = new Set();
+  const rebuilt = [];
+  ['x', 'y'].forEach(variable => {
+    let lower = null, upper = null, lowerClause = '', upperClause = '';
+    clauses.forEach(clause => {
+      let m = clause.match(new RegExp(`^(-?\\d+(?:\\.\\d+)?)(<=|<)${variable}$`, 'i'));
+      if (m) {
+        const cand = { num: m[1], op: m[2] };
+        const better = chooseBetterLower(lower, cand);
+        if (better === cand) { lower = cand; lowerClause = clause; }
+        return;
+      }
+      m = clause.match(new RegExp(`^${variable}(<=|<)(-?\\d+(?:\\.\\d+)?)$`, 'i'));
+      if (m) {
+        const cand = { num: m[2], op: m[1] };
+        const better = chooseBetterUpper(upper, cand);
+        if (better === cand) { upper = cand; upperClause = clause; }
+      }
+    });
+    if (lower && upper) {
+      consumed.add(lowerClause);
+      consumed.add(upperClause);
+      rebuilt.push(`${lower.num}${lower.op}${variable}${upper.op}${upper.num}`);
+    }
+  });
+
+  clauses = clauses.filter(clause => !consumed.has(clause)).concat(rebuilt);
+  clauses = [...new Set(clauses)].filter(Boolean);
+  clauses.sort((a, b) => {
+    const score = clause => {
+      const s = canonicalizeSimpleClause(clause);
+      if (/x/.test(s) && !/y/.test(s)) return 0;
+      if (/y/.test(s) && /x/.test(s)) return 2;
+      if (/y/.test(s)) return 1;
+      return 3;
+    };
+    return score(a) - score(b);
+  });
+  return clauses.join(', ');
+}
+
+function normalizeFormulaBody(value) {
+  let s = ensureString(value);
+  if (!s) return '';
+  s = s.replace(/\\le/g, '<=').replace(/\\ge/g, '>=');
+  s = s.replace(/≤/g, '<=').replace(/≥/g, '>=');
+  return insertImplicitMultiplication(s);
+}
+
+
 function cleanupFormulaExpr(value) {
   let s = (value || '').trim();
   if (!s) return '';
@@ -189,6 +312,7 @@ function cleanupFormulaExpr(value) {
   s = s.replace(/^\s*f\s*[\(\[]\s*x\s*,\s*y\s*[\)\]]\s*=\s*/i, '');
   s = stripTrailingSupportLikeText(s);
   s = s.replace(/[,;，；]\s*$/,'').trim();
+  s = normalizeFormulaBody(s);
   return (hadPrefix && s) ? `f(x,y)=${s}` : s;
 }
 
@@ -222,6 +346,7 @@ function cleanupFormulaLatex(value) {
   s = s.replace(/(^|,)\s*0\s*(,\s*)?(otherwise|else|other cases?)\b.*$/i, '');
   s = s.replace(/(^|,)\s*0\s*(,\s*)?(其余.*|其他.*|否则.*)$/i, '');
   s = s.replace(/[,;，；]\s*$/,'').trim();
+  s = normalizeFormulaBody(s);
   if (s && !/^f\s*\(/i.test(s)) s = `f(x,y)=${s}`;
   return s;
 }

@@ -409,8 +409,134 @@
 </div>
 
 <script>
+
+function normalizeMathText(text){
+  let s=(text||'');
+  const superscriptMap={'⁰':'^0','¹':'^1','²':'^2','³':'^3','⁴':'^4','⁵':'^5','⁶':'^6','⁷':'^7','⁸':'^8','⁹':'^9','⁻':'-'};
+  s=s.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]/g,ch=>superscriptMap[ch]||ch);
+  s=s.replace(/≤/g,'<=').replace(/≥/g,'>=').replace(/，/g,',').replace(/；/g,';');
+  return s;
+}
+
+function insertImplicitMultiplication(expr){
+  let s=(expr||'').trim();
+  if(!s) return '';
+  s=s.replace(/\s+/g,'');
+  for(let i=0;i<8;i++){
+    const prev=s;
+    s=s.replace(/(\d)([xy])/gi,'$1*$2');
+    s=s.replace(/(\d)\(/g,'$1*(');
+    s=s.replace(/([xy])\(/gi,'$1*(');
+    s=s.replace(/\)(\d|[xy])/gi,')*$1');
+    s=s.replace(/([xy])([xy])/gi,'$1*$2');
+    s=s.replace(/\)\(/g,')*(');
+    if(s===prev) break;
+  }
+  return s;
+}
+
+function normalizeFormulaForInput(text){
+  let s=normalizeMathText((text||'').trim());
+  if(!s) return '';
+  let hasPrefix=/^f\s*[\(\[]\s*x\s*,\s*y\s*[\)\]]\s*=/i.test(s);
+  if(hasPrefix) s=s.replace(/^f\s*[\(\[]\s*x\s*,\s*y\s*[\)\]]\s*=\s*/i,'');
+  s=insertImplicitMultiplication(s);
+  return hasPrefix?`f(x,y)=${s}`:s;
+}
+
+function canonicalizeSimpleClause(clause){
+  const s=normalizeMathText((clause||'').trim()).replace(/\s+/g,'');
+  if(!s) return '';
+  let m=s.match(/^(-?\d+(?:\.\d+)?)(<=|<)(x|y)$/i);
+  if(m) return `${m[1]}${m[2]}${m[3].toLowerCase()}`;
+  m=s.match(/^(x|y)(<=|<)(-?\d+(?:\.\d+)?)$/i);
+  if(m) return `${m[1].toLowerCase()}${m[2]}${m[3]}`;
+  m=s.match(/^(x|y)(>=|>)(-?\d+(?:\.\d+)?)$/i);
+  if(m) return `${m[3]}${m[2]==='>='?'<=':'<'}${m[1].toLowerCase()}`;
+  m=s.match(/^(-?\d+(?:\.\d+)?)(>=|>)(x|y)$/i);
+  if(m) return `${m[3].toLowerCase()}${m[2]==='>='?'<=':'<'}${m[1]}`;
+  return s;
+}
+
+function extractImpliedSimpleClauses(clause){
+  const compact=canonicalizeSimpleClause(clause);
+  const {exprs,ops}=splitComparison(compact);
+  if(ops.length<2) return [];
+  const out=[];
+  for(let i=0;i<ops.length;i++) out.push(`${exprs[i]}${ops[i]}${exprs[i+1]}`);
+  return out;
+}
+
+function chooseBetterLower(current,next){
+  if(!current) return next;
+  if(Number(next.num)>Number(current.num)) return next;
+  if(Number(next.num)<Number(current.num)) return current;
+  if(current.op==='<'&&next.op==='<=') return current;
+  return next;
+}
+
+function chooseBetterUpper(current,next){
+  if(!current) return next;
+  if(Number(next.num)<Number(current.num)) return next;
+  if(Number(next.num)>Number(current.num)) return current;
+  if(current.op==='<'&&next.op==='<=') return current;
+  return next;
+}
+
+function simplifySupportText(text){
+  const base=normalizeMathText((text||'').trim()).replace(/且/g,',').replace(/and/g,',');
+  if(!base) return '';
+  let clauses=base.split(/[;,]/).map(s=>canonicalizeSimpleClause(s)).filter(Boolean);
+  clauses=[...new Set(clauses)];
+  const implied=new Set();
+  clauses.forEach(clause=>extractImpliedSimpleClauses(clause).forEach(x=>implied.add(canonicalizeSimpleClause(x))));
+  clauses=clauses.filter(clause=>{
+    const {ops}=splitComparison(clause);
+    return ops.length>=2 || !implied.has(clause);
+  });
+
+  const consumed=new Set();
+  const rebuilt=[];
+  ['x','y'].forEach(variable=>{
+    let lower=null, upper=null, lowerClause='', upperClause='';
+    clauses.forEach(clause=>{
+      let m=clause.match(new RegExp(`^(-?\\d+(?:\\.\\d+)?)(<=|<)${variable}$`,'i'));
+      if(m){
+        const cand={num:m[1],op:m[2]};
+        const better=chooseBetterLower(lower,cand);
+        if(better===cand){lower=cand; lowerClause=clause;}
+        return;
+      }
+      m=clause.match(new RegExp(`^${variable}(<=|<)(-?\\d+(?:\\.\\d+)?)$`,'i'));
+      if(m){
+        const cand={num:m[2],op:m[1]};
+        const better=chooseBetterUpper(upper,cand);
+        if(better===cand){upper=cand; upperClause=clause;}
+      }
+    });
+    if(lower&&upper){
+      consumed.add(lowerClause); consumed.add(upperClause);
+      rebuilt.push(`${lower.num}${lower.op}${variable}${upper.op}${upper.num}`);
+    }
+  });
+  clauses=clauses.filter(clause=>!consumed.has(clause)).concat(rebuilt);
+
+  clauses=[...new Set(clauses)].filter(Boolean);
+  clauses.sort((a,b)=>{
+    const score=clause=>{
+      const s=canonicalizeSimpleClause(clause);
+      if(/x/.test(s)&&!/[y]/.test(s)) return 0;
+      if(/y/.test(s)&&/[x]/.test(s)) return 2;
+      if(/y/.test(s)) return 1;
+      return 3;
+    };
+    return score(a)-score(b);
+  });
+  return clauses.join(', ');
+}
+
 function latexToPlainExpr(latex){
-  let s=(latex||"").trim();
+  let s=normalizeMathText((latex||"").trim());
   s=s.replace(/\\left/g,"").replace(/\\right/g,"");
   s=s.replace(/\\cdot/g,"*").replace(/\\times/g,"*");
   s=s.replace(/−/g,"-").replace(/，/g,",").replace(/；/g,";");
@@ -420,9 +546,10 @@ function latexToPlainExpr(latex){
   s=s.replace(/\\exp/g,"exp").replace(/\\sqrt/g,"sqrt").replace(/\\sin/g,"sin").replace(/\\cos/g,"cos").replace(/\\tan/g,"tan").replace(/\\ln/g,"log").replace(/\\log/g,"log").replace(/\\pi/g,"pi");
   s=s.replace(/e\^\{([^{}]+)\}/g,"exp($1)").replace(/e\^\(([^()]+)\)/g,"exp($1)").replace(/e\^([A-Za-z0-9_+\-*.\/]+)/g,"exp($1)");
   if(s.includes("=")) s=s.split("=").slice(1).join("=").trim();
-  return s.replace(/\{/g,"(").replace(/\}/g,")");
+  s=s.replace(/\{/g,"(").replace(/\}/g,")");
+  return insertImplicitMultiplication(s);
 }
-function preprocessSupport(text){return (text||"").trim().replace(/≤/g,"<=").replace(/≥/g,">=").replace(/，/g,",").replace(/且/g,",").replace(/and/g,",")}
+function preprocessSupport(text){return simplifySupportText(text)}
 function linspace(min,max,n){if(n<=1)return[min];const step=(max-min)/(n-1);return Array.from({length:n},(_,i)=>min+i*step)}
 function splitComparison(chain){const ops=[],exprs=[],regex=/(<=|>=|<|>)/g;let lastIndex=0,match;while((match=regex.exec(chain))!==null){exprs.push(chain.slice(lastIndex,match.index));ops.push(match[0]);lastIndex=match.index+match[0].length}exprs.push(chain.slice(lastIndex));return {exprs,ops}}
 function evalExpr(expr,x,y){return Number(math.evaluate(expr,{x,y,pi:Math.PI,e:Math.E,exp:Math.exp,sqrt:Math.sqrt,sin:Math.sin,cos:Math.cos,tan:Math.tan,log:Math.log,abs:Math.abs,min:Math.min,max:Math.max}))}
@@ -551,7 +678,7 @@ function parseProblemText(text){
   const raw=(text||'').trim();
   if(!raw) return {formula:'',support:'',message:t('parseEmpty')};
 
-  let cleaned=raw
+  let cleaned=normalizeMathText(raw)
     .replace(/[：]/g,':')
     .replace(/[，]/g,',')
     .replace(/[；]/g,';')
@@ -573,7 +700,7 @@ function parseProblemText(text){
 
   const formulaMatch=cleaned.match(/f\s*\(\s*x\s*,\s*y\s*\)\s*=\s*([^,;]+)(?=\s*[,;]|$)/i);
   if(formulaMatch){
-    formula='f(x,y)=' + formulaMatch[1].trim();
+    formula=normalizeFormulaForInput('f(x,y)=' + formulaMatch[1].trim());
   }
 
   const supportPatterns=[
@@ -590,7 +717,7 @@ function parseProblemText(text){
     if(ms) supportHits.push(...ms);
   });
   if(supportHits.length){
-    support=[...new Set(supportHits.map(s=>s.replace(/\s+/g,'')))].join(', ');
+    support=simplifySupportText([...new Set(supportHits.map(s=>s.replace(/\s+/g,'')))].join(', '));
   }
 
   if(formula && support){
@@ -866,7 +993,7 @@ function normalizeRecognizedFormula(value){
   let s=(value||'').trim();
   if(!s) return '';
   if(!/^f\s*[\(\[]?\s*x\s*,\s*y\s*[\)\]]?\s*=/.test(s)) s='f(x,y)='+s;
-  return s;
+  return normalizeFormulaForInput(s);
 }
 function extractJsonObject(text){
   const raw=(text||'').trim();
@@ -878,7 +1005,7 @@ function extractJsonObject(text){
 }
 function handleRecognizedPayload(payload){
   const formula=normalizeRecognizedFormula(payload.formula_raw||payload.formula_expr||payload.formula||'');
-  const support=(payload.support||'').trim();
+  const support=simplifySupportText((payload.support||'').trim());
   const region=(payload.region||'').trim();
   const sourceText=(payload.source_text||'').trim();
   if(formula) els.formula.value=formula;
