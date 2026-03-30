@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>二维概率密度函数可视化网页（课堂展示版）</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@13.2.0/lib/browser/math.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <style>
+    :root{
+      --bg:#f5f7fb;
+      --card:rgba(255,255,255,0.84);
+      --card-strong:rgba(255,255,255,0.93);
+      --text:#0f172a;
+      --muted:#52627a;
+      --border:rgba(148,163,184,0.22);
+      --shadow:0 10px 30px rgba(15,23,42,.08),0 3px 10px rgba(15,23,42,.05);
+      --shadow-hover:0 18px 44px rgba(15,23,42,.12),0 5px 16px rgba(15,23,42,.08);
+      --primary1:#2563eb;
+      --primary2:#7c3aed;
+      --soft-blue:#dbeafe;
+      --soft-pink:#fee2e2;
+      --soft-amber:#fef3c7;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(59,130,246,.10), transparent 28%),
+        radial-gradient(circle at 88% 16%, rgba(168,85,247,.10), transparent 24%),
+        radial-gradient(circle at 72% 82%, rgba(16,185,129,.08), transparent 20%),
+        linear-gradient(180deg, #f8fbff 0%, #f5f7fb 45%, #f3f5f9 100%);
+    }
+    .wrap{max-width:1680px;margin:0 auto;padding:14px 14px 18px}
+    h1{
+      font-size:38px;
+      margin:0 0 10px;
+      letter-spacing:-0.02em;
+      line-height:1.08;
+      font-weight:800;
+    }
+    .title-accent{
+      background:linear-gradient(90deg,var(--primary1),var(--primary2));
+      -webkit-background-clip:text;
+      background-clip:text;
+      color:transparent;
+      margin-right:4px;
+    }
+    .hero{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px}
+    .hero-copy{min-width:0;flex:1}
+    .sub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+      margin-bottom:0;
+      max-width:980px;
+    }
+    .lang-toolbar{display:flex;gap:8px;flex-wrap:nowrap;justify-content:flex-end;align-items:center;flex-shrink:0;margin-top:4px}
+    .lang-btn{padding:7px 12px;border-radius:12px;font-size:13px;min-width:74px}
+    .main{display:grid;grid-template-columns:330px minmax(0,1.42fr) minmax(360px,0.95fr);gap:14px;align-items:start}
+    .stack{display:grid;gap:14px}
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+      transition:transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+      animation:fadeUp .45s ease both;
+    }
+    .card:hover{
+      transform:translateY(-2px);
+      box-shadow:var(--shadow-hover);
+      border-color:rgba(96,165,250,.26);
+    }
+    .body{padding:14px}
+    .card h2{
+      font-size:18px;
+      margin:0 0 10px;
+      letter-spacing:-0.01em;
+    }
+    label{
+      display:block;
+      font-size:13px;
+      font-weight:700;
+      margin:0 0 6px;
+      color:#12213d;
+    }
+    input[type="text"],input[type="number"],textarea{
+      width:100%;
+      border:1px solid rgba(148,163,184,.24);
+      border-radius:14px;
+      padding:10px 12px;
+      font-size:14px;
+      background:rgba(255,255,255,0.92);
+      color:var(--text);
+      outline:none;
+      transition:border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+    input[type="text"]:focus,input[type="number"]:focus,textarea:focus{
+      border-color:rgba(59,130,246,.45);
+      box-shadow:0 0 0 4px rgba(59,130,246,.10);
+      background:rgba(255,255,255,1);
+    }
+    textarea{resize:vertical;min-height:74px}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+    .toolbar,.btns{display:flex;gap:8px;flex-wrap:wrap}
+    button{
+      border:1px solid rgba(148,163,184,.24);
+      background:rgba(255,255,255,0.96);
+      border-radius:14px;
+      padding:9px 12px;
+      font-size:13px;
+      font-weight:700;
+      cursor:pointer;
+      color:#12213d;
+      transition:transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
+      box-shadow:0 3px 8px rgba(15,23,42,.04);
+    }
+    button:hover{
+      transform:translateY(-1px);
+      background:#fff;
+      box-shadow:0 8px 20px rgba(15,23,42,.08);
+      border-color:rgba(96,165,250,.34);
+    }
+    .primary{
+      background:linear-gradient(135deg,var(--primary1),var(--primary2));
+      color:#fff;
+      border-color:transparent;
+      box-shadow:0 10px 22px rgba(79,70,229,.22);
+    }
+    .primary:hover{
+      background:linear-gradient(135deg,#1d4ed8,#6d28d9);
+      box-shadow:0 14px 28px rgba(79,70,229,.28);
+    }
+    .muted{color:var(--muted);font-size:13px;line-height:1.72}
+    .latex-box{
+      min-height:72px;
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:18px;
+      background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,250,252,.92));
+      padding:14px 16px;
+      display:flex;
+      align-items:center;
+      overflow:auto;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.55);
+    }
+    .plot{
+      height:560px;
+      border-radius:18px;
+      overflow:hidden;
+      background:linear-gradient(180deg, rgba(255,255,255,.5), rgba(248,250,252,.2));
+    }
+    .smallplot{
+      height:300px;
+      border-radius:18px;
+      overflow:hidden;
+      background:linear-gradient(180deg, rgba(255,255,255,.5), rgba(248,250,252,.2));
+    }
+    .stat{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin:12px 0;
+      padding:10px 0;
+      border-bottom:1px dashed rgba(148,163,184,.18);
+    }
+    .stat:last-of-type{border-bottom:none}
+    .badge{
+      display:inline-block;
+      padding:5px 11px;
+      border-radius:999px;
+      font-size:13px;
+      font-weight:700;
+      background:#eef2ff;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
+    }
+    .ok{background:#dcfce7;color:#166534}
+    .bad{background:#fee2e2;color:#991b1b}
+    .rose{background:#ffe4e6;color:#9f1239}
+    .alert{
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:16px;
+      padding:11px 13px;
+      font-size:13px;
+      line-height:1.7;
+      background:var(--card-strong);
+      margin-top:12px;
+    }
+    .error{border-color:#fecaca;background:#fef2f2;color:#991b1b}
+    .success{border-color:#bbf7d0;background:#f0fdf4;color:#166534}
+    .legend{display:grid;gap:8px;margin-top:12px}
+    .legend-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+    .swatch{
+      width:18px;height:12px;border-radius:999px;border:1px solid rgba(148,163,184,.28);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
+    }
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .btn-math{font-family:"Times New Roman",Times,serif;font-style:italic;letter-spacing:0}
+    .btn-math sup{font-size:.72em;vertical-align:super;font-style:normal}
+    code{
+      background:rgba(241,245,249,.9);
+      padding:2px 7px;
+      border-radius:8px;
+      color:#1e3a8a;
+    }
+
+    .compact-note{font-size:12px;line-height:1.55;color:var(--muted)}
+    .image-card{
+      border:1px dashed rgba(96,165,250,.38);
+      border-radius:18px;
+      padding:12px;
+      background:linear-gradient(180deg, rgba(239,246,255,.8), rgba(255,255,255,.82));
+      margin-bottom:12px;
+    }
+    .image-dropzone{
+      min-height:118px;
+      border:1.5px dashed rgba(96,165,250,.42);
+      border-radius:16px;
+      background:rgba(255,255,255,.82);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      padding:12px;
+      color:var(--muted);
+      cursor:pointer;
+      overflow:hidden;
+      position:relative;
+    }
+    .image-dropzone.has-image{padding:0;border-style:solid;background:#fff}
+    .image-dropzone img{
+      width:100%;
+      max-height:170px;
+      object-fit:contain;
+      display:block;
+      border-radius:14px;
+    }
+    .image-dropzone .empty-text{font-size:13px;line-height:1.6}
+    .image-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .status-text{font-size:12px;line-height:1.6;margin-top:8px;color:var(--muted)}
+    .mini-badge{
+      display:inline-block;
+      padding:2px 8px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:700;
+      background:#eff6ff;
+      color:#1d4ed8;
+      margin-left:6px;
+    }
+    .section-divider{height:1px;background:rgba(148,163,184,.16);margin:12px 0}
+
+    @keyframes fadeUp{
+      from{opacity:0;transform:translateY(8px)}
+      to{opacity:1;transform:translateY(0)}
+    }
+    @media (max-width:1450px){.main{grid-template-columns:300px 1.28fr 0.92fr}}
+    @media (max-width:1180px){
+      .main{grid-template-columns:1fr}
+      .plot{height:520px}
+      .smallplot{height:300px}
+      .hero{display:block}
+      .lang-toolbar{justify-content:flex-start;margin-top:14px}
+      h1{font-size:32px}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-copy">
+      <h1><span class="title-accent" id="titleAccent">二维概率密度函数</span><span id="titleRest">的可视化</span></h1>
+      <div class="sub" id="pageSub">面向课堂演示与在线分享：用交互图形直观理解二维概率密度、积分区域与概率体积。</div>
+    </div>
+    <div class="lang-toolbar" id="langToolbar" aria-label="Language switcher">
+      <button type="button" id="langZhBtn" class="primary lang-btn">中文</button>
+      <button type="button" id="langEnBtn" class="lang-btn">English</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="stack left-stack">
+      <div class="card"><div class="body">
+        <h2 id="panelInputTitle">输入与公式</h2>
+        <textarea id="formula" style="display:none">f(x,y)=2</textarea>
+
+        <div class="image-card">
+          <label id="imageToolsTitle">图片识别</label>
+          <div id="imageDropzone" class="image-dropzone" tabindex="0" title="点击上传，或直接粘贴图片">
+            <div class="empty-text" id="imageDropHint">点击上传图片，或直接粘贴图片到这里</div>
+          </div>
+          <input id="imageInput" type="file" accept="image/*" style="display:none" />
+          <div class="image-toolbar">
+            <button id="pickImageBtn" type="button">选择图片</button>
+            <button id="recognizeBtn" type="button" class="primary">AI 识别</button>
+            <button id="clearImageBtn" type="button">清空图片</button>
+          </div>
+          <div id="imageStatus" class="status-text">支持上传图片，也支持在此区域直接粘贴截图。</div>
+        </div>
+
+        <label for="problemText" id="labelProblemText">整段函数文本</label>
+        <textarea id="problemText" class="mono" style="min-height:74px" placeholder="可粘贴函数说明文本，例如：&#10;f(x,y)=4.8y(2-x), 0<=x<=1, 0<=y<=x"></textarea>
+        <div style="height:8px"></div>
+        <div class="toolbar">
+          <button id="parseBtn" class="primary">从文本自动拆分</button>
+          <button id="clearProblemBtn">清空文本</button>
+        </div>
+        <div id="parseMsg" class="muted" style="margin-top:8px">会尽量自动提取“密度函数”和“支持集”，但仍建议你人工核对结果。</div>
+
+        <div class="section-divider"></div>
+        <label id="labelCurrentDensity">当前密度函数（LaTeX 渲染）</label>
+        <div id="latexBox" class="latex-box"></div>
+
+        <div style="height:10px"></div>
+        <label for="support" id="labelSupport">支持集 / 定义域</label>
+        <input id="support" type="text" value="0<y<x<1" placeholder="例如：0<y<x<1 或 x>0, y>0" />
+
+        <div style="height:10px"></div>
+        <label for="region" id="labelRegion">积分区域 D（留空表示不做积分演示）</label>
+        <input id="region" type="text" value="0<x<0.5, 0<y<0.5" placeholder="例如：0<x<0.5, 0<y<0.5 或 y<x/2" />
+
+        <div style="height:10px"></div>
+        <div class="row2">
+          <div><label for="xmin" id="labelXmin">x 最小值</label><input id="xmin" type="number" value="0" /></div>
+          <div><label for="xmax" id="labelXmax">x 最大值</label><input id="xmax" type="number" value="1" /></div>
+          <div><label for="ymin" id="labelYmin">y 最小值</label><input id="ymin" type="number" value="0" /></div>
+          <div><label for="ymax" id="labelYmax">y 最大值</label><input id="ymax" type="number" value="1" /></div>
+        </div>
+
+        <div style="height:10px"></div>
+        <label for="gridn" id="labelGrid">网格密度</label>
+        <input id="gridn" type="number" min="20" max="160" value="80" />
+
+        <div style="height:12px"></div>
+        <div class="toolbar">
+          <button id="renderBtn" class="primary">生成图像</button>
+          <button id="autoRangeBtn">自动推荐范围</button>
+        </div>
+        <div id="editorMsg" class="muted" style="margin-top:8px">修改完后，请点击“生成图像”。</div>
+
+        <div style="height:12px"></div>
+        <div class="alert">
+          <strong id="howToTitle">如何使用</strong>
+          <div class="compact-note" id="howToText" style="margin-top:6px">
+            1. 可上传图片、粘贴图片，或直接粘贴函数说明文本。<br>
+            2. AI 会尝试提取密度函数、支持集与积分区域，识别后可继续手动修改。<br>
+            3. 点击“生成图像”，在同一屏中同时观察左侧输入、中间 3D 曲面与右侧 xOy 平面投影。
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="stack center-stack">
+      <div class="card"><div class="body">
+        <h2 id="surfaceTitle">三维概率密度曲面、底面区域与积分主体</h2>
+        <div id="surfacePlot" class="plot"></div>
+        <div class="legend">
+          <div class="legend-item"><span class="swatch" style="background:#bfdbfe"></span><span id="legendBlue">蓝色曲面：整体密度曲面</span></div>
+          <div class="legend-item"><span class="swatch" style="background:#fde68a"></span><span id="legendYellow">黄色底面：原始积分区域 D 在 xOy 平面上的投影</span></div>
+          <div class="legend-item"><span class="swatch" style="background:#fecaca"></span><span id="legendPinkBase">粉色底面：D∩support 在 xOy 平面上的投影</span></div>
+          <div class="legend-item"><span class="swatch" style="background:#fda4af"></span><span id="legendPinkWall">半透明粉色侧壁：从交集底面连接到概率密度曲面的侧壁</span></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="stack right-stack">
+      <div class="card"><div class="body">
+        <h2 id="projectionTitle">支持集、原始积分区域与有效积分区域投影</h2>
+        <div id="heatmapPlot" class="smallplot"></div>
+        <div class="legend">
+          <div class="legend-item"><span class="swatch" style="background:#ffffff"></span><span id="legendWhite">白色：支持集外，且不在原始积分区域 D 内</span></div>
+          <div class="legend-item"><span class="swatch" style="background:#fef3c7"></span><span id="legendPaleYellow">浅黄：在原始积分区域 D 内，但不在支持集内</span></div>
+          <div class="legend-item"><span class="swatch" style="background:#dbeafe"></span><span id="legendPaleBlue">浅蓝：在支持集内，但不在原始积分区域 D 内</span></div>
+          <div class="legend-item"><span class="swatch" style="background:#fecaca"></span><span id="legendPaleRed">浅红：在支持集与积分区域 D 的交集内，真正参与积分</span></div>
+        </div>
+      </div></div>
+
+      <div class="card"><div class="body">
+        <h2 id="checkTitle">自动检查与区域积分</h2>
+        <div class="stat"><span class="muted" id="statTotal">近似总积分</span><span id="integralBadge" class="badge">-</span></div>
+        <div class="stat"><span class="muted" id="statRegion">区域积分值</span><span id="regionIntegralBadge" class="badge rose">-</span></div>
+        <div class="stat"><span class="muted" id="statNeg">检测到负值</span><span id="negativeBadge" class="badge">-</span></div>
+        <div id="statusAlert" class="alert">等待计算。</div>
+      </div></div>
+
+      <div class="card"><div class="body">
+        <h2 id="examplesTitle">快捷示例</h2>
+        <div class="btns">
+          <button data-example="triangle" id="exTriangleBtn">三角区域常值密度</button>
+          <button data-example="gaussian" id="exGaussianBtn">二维标准正态</button>
+          <button data-example="expq1" id="exExpBtn">第一象限独立指数型</button>
+          <button data-example="linearxy" id="exLinearxyBtn">线性密度 <span class="btn-math">x+y</span></button>
+          <button data-example="linearx2y" id="exLinearx2yBtn">非线性密度 <span class="btn-math">6x<sup>2</sup>y</span></button>
+          <button data-example="diskuniform" id="exDiskBtn">圆盘上的均匀分布</button>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <span id="usageIntegral" style="display:none"></span>
+</div>
+
+<script>
+function latexToPlainExpr(latex){
+  let s=(latex||"").trim();
+  s=s.replace(/\\left/g,"").replace(/\\right/g,"");
+  s=s.replace(/\\cdot/g,"*").replace(/\\times/g,"*");
+  s=s.replace(/−/g,"-").replace(/，/g,",").replace(/；/g,";");
+  let prev="";
+  while(s.includes("\\frac")&&s!==prev){prev=s;s=s.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g,"($1)/($2)")}
+  s=s.replace(/\\mathrm\{([^{}]+)\}/g,"$1");
+  s=s.replace(/\\exp/g,"exp").replace(/\\sqrt/g,"sqrt").replace(/\\sin/g,"sin").replace(/\\cos/g,"cos").replace(/\\tan/g,"tan").replace(/\\ln/g,"log").replace(/\\log/g,"log").replace(/\\pi/g,"pi");
+  s=s.replace(/e\^\{([^{}]+)\}/g,"exp($1)").replace(/e\^\(([^()]+)\)/g,"exp($1)").replace(/e\^([A-Za-z0-9_+\-*.\/]+)/g,"exp($1)");
+  if(s.includes("=")) s=s.split("=").slice(1).join("=").trim();
+  return s.replace(/\{/g,"(").replace(/\}/g,")");
+}
+function preprocessSupport(text){return (text||"").trim().replace(/≤/g,"<=").replace(/≥/g,">=").replace(/，/g,",").replace(/且/g,",").replace(/and/g,",")}
+function linspace(min,max,n){if(n<=1)return[min];const step=(max-min)/(n-1);return Array.from({length:n},(_,i)=>min+i*step)}
+function splitComparison(chain){const ops=[],exprs=[],regex=/(<=|>=|<|>)/g;let lastIndex=0,match;while((match=regex.exec(chain))!==null){exprs.push(chain.slice(lastIndex,match.index));ops.push(match[0]);lastIndex=match.index+match[0].length}exprs.push(chain.slice(lastIndex));return {exprs,ops}}
+function evalExpr(expr,x,y){return Number(math.evaluate(expr,{x,y,pi:Math.PI,e:Math.E,exp:Math.exp,sqrt:Math.sqrt,sin:Math.sin,cos:Math.cos,tan:Math.tan,log:Math.log,abs:Math.abs,min:Math.min,max:Math.max}))}
+function checkSingleClause(clause,x,y){const compact=clause.replace(/\s+/g,"");if(!compact)return true;const {exprs,ops}=splitComparison(compact);if(ops.length===0)return Boolean(evalExpr(compact,x,y));const values=exprs.map(expr=>evalExpr(expr,x,y));for(let i=0;i<ops.length;i++){const left=values[i],right=values[i+1],op=ops[i];let ok=false;if(op==="<")ok=left<right;if(op==="<=")ok=left<=right;if(op===">")ok=left>right;if(op===">=")ok=left>=right;if(!ok)return false}return true}
+function supportSatisfied(text,x,y){const normalized=preprocessSupport(text);if(!normalized)return true;const clauses=normalized.split(/[;,]/).map(s=>s.trim()).filter(Boolean);return clauses.every(clause=>checkSingleClause(clause,x,y))}
+function buildSurface(exprText,supportText,xMin,xMax,yMin,yMax,n){
+  const xs=linspace(xMin,xMax,n),ys=linspace(yMin,yMax,n),Z=[];let negativeFound=false,sum=0;
+  const dx=n>1?(xMax-xMin)/(n-1):0,dy=n>1?(yMax-yMin)/(n-1):0;
+  for(let j=0;j<ys.length;j++){
+    const row=[];
+    for(let i=0;i<xs.length;i++){
+      const x=xs[i],y=ys[j],inSupport=supportSatisfied(supportText,x,y);
+      if(!inSupport){row.push(null);continue}
+      const z=evalExpr(exprText,x,y);
+      if(!Number.isFinite(z)){row.push(null);continue}
+      if(z<-1e-8)negativeFound=true;
+      row.push(z); sum+=z*dx*dy;
+    }
+    Z.push(row);
+  }
+  return {xs,ys,Z,totalIntegral:sum,hasNegative:negativeFound};
+}
+function buildBooleanMask(xs,ys,text,defaultValue){const hasText=preprocessSupport(text);if(!hasText)return ys.map(()=>xs.map(()=>defaultValue?1:0));return ys.map(y=>xs.map(x=>supportSatisfied(text,x,y)?1:0))}
+function applyMaskToSurface(zGrid,mask){return zGrid.map((row,j)=>row.map((v,i)=>(v!==null&&mask[j][i]===1?v:null)))}
+function buildBasePlane(mask){return mask.map(row=>row.map(v=>v===1?0:null))}
+function approximateRegionIntegral(zGrid,effectiveMask,xMin,xMax,yMin,yMax){
+  if(!zGrid.length||!zGrid[0].length)return 0;
+  const dx=zGrid[0].length>1?(xMax-xMin)/(zGrid[0].length-1):0,dy=zGrid.length>1?(yMax-yMin)/(zGrid.length-1):0;
+  let sum=0;
+  for(let j=0;j<zGrid.length;j++) for(let i=0;i<zGrid[j].length;i++){const v=zGrid[j][i];if(v!==null&&effectiveMask[j][i]===1)sum+=v*dx*dy}
+  return sum;
+}
+function buildProjectionMap(supportMask,rawRegionMask,effectiveMask){
+  return supportMask.map((row,j)=>row.map((supportVal,i)=>{
+    const rawVal=rawRegionMask[j][i],effVal=effectiveMask[j][i];
+    if(effVal===1)return 3;
+    if(rawVal===1&&supportVal===0)return 2;
+    if(supportVal===1&&rawVal===0)return 1;
+    return 0;
+  }))
+}
+function buildPrismEdgeSegments(xs,ys,mask,zGrid){
+  const segments=[],ny=ys.length,nx=xs.length;
+  const eps=0.5*Math.min(nx>1?Math.abs(xs[1]-xs[0]):0.01,ny>1?Math.abs(ys[1]-ys[0]):0.01);
+  function cellZ(j,i){const v=zGrid[j][i];return v===null?0:v}
+  function addVerticalX(xConst,y1,y2,z1,z2){segments.push({x:[xConst,xConst,xConst,xConst],y:[y1,y1,y2,y2],z:[0,z1,z2,0]})}
+  function addVerticalY(x1,x2,yConst,z1,z2){segments.push({x:[x1,x1,x2,x2],y:[yConst,yConst,yConst,yConst],z:[0,z1,z2,0]})}
+  for(let j=0;j<ny;j++) for(let i=0;i<nx;i++){
+    if(mask[j][i]!==1)continue;
+    const x=xs[i],y=ys[j],left=i===0?0:mask[j][i-1],right=i===nx-1?0:mask[j][i+1],down=j===0?0:mask[j-1][i],up=j===ny-1?0:mask[j+1][i],zc=cellZ(j,i);
+    if(!left)addVerticalX(x-eps,y-eps,y+eps,zc,zc);
+    if(!right)addVerticalX(x+eps,y-eps,y+eps,zc,zc);
+    if(!down)addVerticalY(x-eps,x+eps,y-eps,zc,zc);
+    if(!up)addVerticalY(x-eps,x+eps,y+eps,zc,zc);
+  }
+  return segments;
+}
+function extractBounds(text){
+  const normalized=preprocessSupport(text);
+  if(!normalized)return null;
+  const clauses=normalized.split(/[;,]/).map(s=>s.trim()).filter(Boolean);
+  let xLower=null,xUpper=null,yLower=null,yUpper=null;
+  function updateBound(variable,type,value){
+    if(variable==='x'){if(type==='lower')xLower=xLower===null?value:Math.max(xLower,value);else xUpper=xUpper===null?value:Math.min(xUpper,value)}
+    if(variable==='y'){if(type==='lower')yLower=yLower===null?value:Math.max(yLower,value);else yUpper=yUpper===null?value:Math.min(yUpper,value)}
+  }
+  clauses.forEach(clause=>{
+    const compact=clause.replace(/\s+/g,''); let m;
+    m=compact.match(/^(-?\d+(?:\.\d+)?)<=(x|y)<=(-?\d+(?:\.\d+)?)$/); if(m){updateBound(m[2],'lower',Number(m[1]));updateBound(m[2],'upper',Number(m[3]));return;}
+    m=compact.match(/^(-?\d+(?:\.\d+)?)<(x|y)<(-?\d+(?:\.\d+)?)$/); if(m){updateBound(m[2],'lower',Number(m[1]));updateBound(m[2],'upper',Number(m[3]));return;}
+    m=compact.match(/^(x|y)>=(-?\d+(?:\.\d+)?)$/); if(m){updateBound(m[1],'lower',Number(m[2]));return;}
+    m=compact.match(/^(x|y)>(-?\d+(?:\.\d+)?)$/); if(m){updateBound(m[1],'lower',Number(m[2]));return;}
+    m=compact.match(/^(x|y)<=(-?\d+(?:\.\d+)?)$/); if(m){updateBound(m[1],'upper',Number(m[2]));return;}
+    m=compact.match(/^(x|y)<(-?\d+(?:\.\d+)?)$/); if(m){updateBound(m[1],'upper',Number(m[2]));return;}
+  });
+  return {xLower,xUpper,yLower,yUpper};
+}
+function autoRecommendRange(){
+  const bounds=extractBounds(els.support.value);
+  if(bounds&&bounds.xLower!==null&&bounds.xUpper!==null&&bounds.yLower!==null&&bounds.yUpper!==null){
+    const xSpan=Math.max(0.2,bounds.xUpper-bounds.xLower), ySpan=Math.max(0.2,bounds.yUpper-bounds.yLower);
+    const xPad=Math.max(0.05,xSpan*0.08), yPad=Math.max(0.05,ySpan*0.08);
+    els.xmin.value=String(bounds.xLower-xPad); els.xmax.value=String(bounds.xUpper+xPad);
+    els.ymin.value=String(bounds.yLower-yPad); els.ymax.value=String(bounds.yUpper+yPad);
+    els.editorMsg.textContent=t('autoRangeFromSupport'); return;
+  }
+  const expr=latexToPlainExpr(els.formula.value).toLowerCase();
+  if(expr.includes('exp(-(x^2+y^2)/2)')){els.xmin.value='-3';els.xmax.value='3';els.ymin.value='-3';els.ymax.value='3';els.editorMsg.textContent=t('autoRangeGaussian');return}
+  if(expr.includes('exp(-(x+y))')||expr.includes('exp(-(2*x+y))')){els.xmin.value='0';els.xmax.value='5';els.ymin.value='0';els.ymax.value='5';els.editorMsg.textContent=t('autoRangeExp');return}
+  els.editorMsg.textContent=t('autoRangeFail');
+}
+function wholeTextToLatex(text){
+  let s=(text||'').trim();
+  if(!s) return 'f(x,y)=\,';
+  s=s.replace(/^f\s*\(\s*x\s*,\s*y\s*\)\s*=\s*/i,'');
+  s=s.replace(/\\/g,'');
+  s=s.replace(/\s+/g,'');
+  s=s.replace(/pi/g,'\\pi');
+
+  function convertSimpleFractions(expr){
+    let prev='';
+    let cur=expr;
+    while(cur!==prev){
+      prev=cur;
+      cur=cur.replace(/(?<![a-zA-Z0-9}\\])(\d+|[a-zA-Z]+|\\pi)\/(\d+|[a-zA-Z]+|\\pi)(?![a-zA-Z0-9{])/g,'\\frac{$1}{$2}');
+      cur=cur.replace(/(?<![a-zA-Z0-9}\\])(\d+|[a-zA-Z]+|\\pi)\/\(([^()]+)\)/g,'\\frac{$1}{$2}');
+      cur=cur.replace(/\(([^()]+)\)\/(\d+|[a-zA-Z]+|\\pi)(?![a-zA-Z0-9{])/g,'\\frac{$1}{$2}');
+      cur=cur.replace(/\(([^()]+)\)\/\(([^()]+)\)/g,'\\frac{$1}{$2}');
+    }
+    return cur;
+  }
+
+  s=convertSimpleFractions(s);
+  s=s.replace(/\*/g,' ');
+  s=s.replace(/e\^\(-\(([^()]+)\)\)/g,'e^{-($1)}');
+  s=s.replace(/e\^\(([^()]+)\)/g,'e^{($1)}');
+  s=s.replace(/exp\(-\(([^()]+)\)\/([^()]+)\)/g,'e^{-\\frac{$1}{$2}}');
+  s=s.replace(/exp\(-\(([^()]+)\)\)/g,'e^{-($1)}');
+  s=s.replace(/exp\(-([^()]+)\)/g,'e^{-{$1}}');
+  s=s.replace(/exp\(([^()]+)\)/g,'e^{$1}');
+  s=s.replace(/\^2/g,'^{2}');
+  s=s.replace(/\^([a-zA-Z0-9])/g,'^{$1}');
+  return 'f(x,y)=' + s;
+}
+function parseProblemText(text){
+  const raw=(text||'').trim();
+  if(!raw) return {formula:'',support:'',message:t('parseEmpty')};
+  let cleaned=raw.replace(/[：]/g,':').replace(/[，]/g,',').replace(/[；]/g,';').replace(/[（]/g,'(').replace(/[）]/g,')').replace(/[≤]/g,'<=').replace(/[≥]/g,'>=').replace(/[﹣−—]/g,'-').replace(/\s+/g,' ').trim();
+  cleaned=cleaned.replace(/f\s*\(\s*x\s*,\s*y\s*\)\s*=\s*0\s*[;,，]?\s*其他.*$/i,'');
+  cleaned=cleaned.replace(/[,;，；]?\s*其他\s*(为)?\s*0.*$/i,'');
+  let formula='',support='';
+  const formulaMatch=cleaned.match(/f\s*[\(\[]?\s*x\s*,\s*y\s*[\)\]]?\s*[:=]\s*([^;；]+)/i)||cleaned.match(/f\s*[\(\[]?\s*x\s*,\s*y\s*[\)\]]?\s*=\s*([^;；]+)/i);
+  if(formulaMatch){
+    let rhs=formulaMatch[1].trim();
+    const split=rhs.split(/(?:,|，)\s*(?=0\s*[<>=]|x\s*[<>=]|y\s*[<>=])/);
+    if(split.length>1){formula='f(x,y)='+split[0].trim();support=split.slice(1).join(', ').trim();}
+    else{formula='f(x,y)='+rhs;}
+  }
+  const clauses=[];
+  const pats=[/-?\d+(?:\.\d+)?\s*<=?\s*x\s*<=?\s*-?\d+(?:\.\d+)?/ig,/-?\d+(?:\.\d+)?\s*<=?\s*y\s*<=?\s*-?\d+(?:\.\d+)?/ig,/-?\d+(?:\.\d+)?\s*<\s*x\s*<\s*-?\d+(?:\.\d+)?/ig,/-?\d+(?:\.\d+)?\s*<\s*y\s*<\s*-?\d+(?:\.\d+)?/ig,/-?\d+(?:\.\d+)?\s*<=?\s*y\s*<=?\s*x/ig,/-?\d+(?:\.\d+)?\s*<\s*y\s*<\s*x/ig,/x\s*[<>]=?\s*-?\d+(?:\.\d+)?/ig,/y\s*[<>]=?\s*-?\d+(?:\.\d+)?/ig];
+  pats.forEach(p=>{const ms=cleaned.match(p); if(ms) clauses.push(...ms);});
+  if(clauses.length){
+    const uniq=[...new Set(clauses.map(s=>s.replace(/\s+/g,' ').trim()))];
+    const filtered=uniq.filter(item=>!uniq.some(other=>other!==item && other.includes(item)));
+    support=filtered.join(', ');
+  }
+  let message=t('parseMessage');
+  if(!formula) message=t('parseNoFormula');
+  return {formula,support,message};
+}
+function renderLatexBox(){
+  const box=els.latexBox; const raw=els.formula.value.trim();
+  if(!raw){box.textContent=''; return;}
+  const latex=wholeTextToLatex(raw);
+  if(typeof katex==='undefined'){box.textContent=raw; return;}
+  try{katex.render(latex,box,{throwOnError:false,displayMode:true});}
+  catch(e){box.textContent=raw;}
+}
+
+function renderLatexWhenReady(retries=40){
+  if(typeof katex!=='undefined'){
+    renderLatexBox();
+    return;
+  }
+  if(retries>0){
+    setTimeout(()=>renderLatexWhenReady(retries-1), 100);
+  } else {
+    renderLatexBox();
+  }
+}
+
+const I18N = {
+  zh: {
+    pageTitle: '二维概率密度函数可视化网页（课堂展示版）',
+    titleAccent: '二维概率密度函数',
+    titleRest: '的可视化',
+    pageSub: '面向课堂演示与在线分享：用交互图形直观理解二维概率密度、积分区域与概率体积。',
+    panelInputTitle: '输入与公式',
+    imageToolsTitle: '图片识别',
+    imageDropHint: '点击上传图片，或直接粘贴图片到这里',
+    imagePickBtn: '选择图片', imageRecognizeBtn: 'AI 识别', imageClearBtn: '清空图片',
+    imageStatusDefault: '支持上传图片，也支持在此区域直接粘贴截图。',
+    imageStatusReady: '图片已就绪，点击“AI 识别”即可自动提取。',
+    imageStatusNeedImage: '请先上传图片或粘贴图片。',
+    imageStatusWorking: '正在识别图片中的函数信息…',
+    imageStatusSuccess: '识别完成，结果已回填到下方表单。你仍可手动修改。',
+    imageStatusNoRegion: '识别完成，已提取密度函数和支持集；若需要积分区域，请手动补充。',
+    imageStatusCleared: '图片已清空。',
+    imageStatusFailed: '识别失败：',
+    labelProblemText: '整段函数文本',
+    problemPlaceholder: '可粘贴函数说明文本，例如：\nf(x,y)=4.8y(2-x), 0<=x<=1, 0<=y<=x',
+    parseBtn: '从文本自动拆分',
+    clearProblemBtn: '清空文本',
+    parseMsgDefault: '会尽量自动提取“密度函数”和“支持集”，但仍建议你人工核对结果。',
+    labelCurrentDensity: '当前密度函数（LaTeX 渲染）',
+    labelSupport: '支持集 / 定义域',
+    supportPlaceholder: '例如：0<y<x<1 或 x>0, y>0',
+    labelRegion: '积分区域 D（留空表示不做积分演示）',
+    regionPlaceholder: '例如：0<x<0.5, 0<y<0.5 或 y<x/2',
+    labelXmin: 'x 最小值', labelXmax: 'x 最大值', labelYmin: 'y 最小值', labelYmax: 'y 最大值',
+    labelGrid: '网格密度', renderBtn: '生成图像', autoRangeBtn: '自动推荐范围',
+    editorMsgDefault: '修改完后，请点击“生成图像”。',
+    howToTitle: '如何使用',
+    howToText: '1. 可上传图片、粘贴图片，或直接粘贴函数说明文本。<br>2. AI 会尝试提取密度函数、支持集与积分区域，识别后仍可继续手动修改。<br>3. 点击“生成图像”，在同一屏中同时观察左侧输入、中间 3D 曲面与右侧 xOy 平面投影。',
+    surfaceTitle: '三维概率密度曲面、底面区域与积分主体',
+    legendBlue: '蓝色曲面：整体密度曲面', legendYellow: '黄色底面：原始积分区域 D 在 xOy 平面上的投影',
+    legendPinkBase: '粉色底面：D∩support 在 xOy 平面上的投影', legendPinkWall: '半透明粉色侧壁：从交集底面连接到概率密度曲面的侧壁',
+    examplesTitle: '快捷示例', exTriangleBtn: '三角区域常值密度', exGaussianBtn: '二维标准正态', exExpBtn: '第一象限独立指数型', exLinearxyBtn: '线性密度 ', exLinearx2yBtn: '非线性密度 ', exDiskBtn: '圆盘上的均匀分布',
+    projectionTitle: '支持集、原始积分区域与有效积分区域投影',
+    legendWhite: '白色：支持集外，且不在原始积分区域 D 内', legendPaleYellow: '浅黄：在原始积分区域 D 内，但不在支持集内', legendPaleBlue: '浅蓝：在支持集内，但不在原始积分区域 D 内', legendPaleRed: '浅红：在支持集与积分区域 D 的交集内，真正参与积分',
+    checkTitle: '自动检查与区域积分', statTotal: '近似总积分', statRegion: '区域积分值', statNeg: '检测到负值',
+    waiting: '等待计算。', yes: '是', no: '否',
+    parseEmpty: '文本为空。',
+    parseMessage: '已尝试从整段文本中自动拆分出公式和支持集，请人工检查。', parseNoFormula: '没有稳定提取出公式，请手动补充。',
+    editorModified: '你已修改输入，点击“生成图像”后更新右侧图像。',
+    autoRangeFromSupport: '已根据支持集自动推荐 x、y 范围，请点击“生成图像”查看。',
+    autoRangeGaussian: '已按二维标准正态的常用观察窗口推荐范围 [-3,3]×[-3,3]。请点击“生成图像”。',
+    autoRangeExp: '已按第一象限指数型密度的常用观察窗口推荐范围 [0,5]×[0,5]。请点击“生成图像”。',
+    autoRangeFail: '未能从当前支持集自动提取清晰边界。你可以手动设置范围，或把支持集写成 0<=x<=1, 0<=y<=x 这类形式后再试。',
+    plotlyLoadFail: 'Plotly 加载失败。', mathLoadFail: 'math.js 加载失败。', illegalRange: '坐标范围不合法：请确保最大值大于最小值。', calcFail: '计算失败：',
+    totalSurface: '整体密度曲面', rawRegionBase: '原始积分区域 D（底面）', interBase: '交集区域 D∩support（底面）', effectiveBody: '有效积分主体', sideWall: '封闭柱体侧壁',
+    sceneX: 'x', sceneY: 'y', sceneZ: 'f(x,y)',
+    noRegionValid: '当前未输入积分区域 D，因此网页只显示原始的概率密度曲面（蓝色），不显示积分区域、交集区域或柱体。',
+    noRegionInvalid: '当前未输入积分区域 D，因此网页只显示原始的概率密度曲面（蓝色）。同时请注意：当前函数可能不是合法的二维概率密度函数，或者绘图范围还没有覆盖主要概率质量区域。',
+    validStatus: '当前设置下，这个函数近似满足二维概率密度函数的两个核心条件：非负、总积分约为 1。3D 图中黄色底面表示原始积分区域 <code>D</code>，粉色底面表示 <code>D∩support</code>，半透明粉色侧壁从交集底面连接到概率密度曲面。',
+    invalidStatus: '当前函数可能不是合法的二维概率密度函数，或者绘图范围还没有覆盖主要概率质量区域。3D 图仍会显示原始积分区域、交集底面和对应的半透明封闭体。',
+    updated: '图像已更新。继续修改后，请再次点击“生成图像”。',
+    fixInput: '请修正输入后，再点击“生成图像”。当前保留上一次成功的图像。',
+    cleared: '已清空文本。'
+  },
+  en: {
+    pageTitle: 'Bivariate Probability Density Function Visualizer',
+    titleAccent: 'Bivariate Probability Density Function',
+    titleRest: ' Visualization',
+    pageSub: 'Understand bivariate densities, integration regions, and probability volume through interactive graphics.',
+    panelInputTitle: 'Inputs and Formulas',
+    imageToolsTitle: 'Image recognition',
+    imageDropHint: 'Click to upload an image, or paste an image here',
+    imagePickBtn: 'Choose image', imageRecognizeBtn: 'AI extract', imageClearBtn: 'Clear image',
+    imageStatusDefault: 'You can upload an image or paste a screenshot directly into this area.',
+    imageStatusReady: 'The image is ready. Click “AI extract” to parse it.',
+    imageStatusNeedImage: 'Please upload or paste an image first.',
+    imageStatusWorking: 'Extracting the function information from the image…',
+    imageStatusSuccess: 'Extraction complete. The results have been filled into the form below and can still be edited manually.',
+    imageStatusNoRegion: 'Extraction complete. The density and support were found; add the integration region manually if needed.',
+    imageStatusCleared: 'Image cleared.',
+    imageStatusFailed: 'Extraction failed: ',
+    labelProblemText: 'Source text',
+    problemPlaceholder: 'Paste a function description, for example:\nf(x,y)=4.8y(2-x), 0<=x<=1, 0<=y<=x',
+    parseBtn: 'Extract from text',
+    clearProblemBtn: 'Clear text',
+    parseMsgDefault: 'The tool will try to extract the density function and its support automatically, but you should still verify the result manually.',
+    labelCurrentDensity: 'Current density function (rendered in LaTeX)',
+    labelSupport: 'Support / Domain',
+    supportPlaceholder: 'For example: 0<y<x<1 or x>0, y>0',
+    labelRegion: 'Integration region D (leave blank to show only the density surface)',
+    regionPlaceholder: 'For example: 0<x<0.5, 0<y<0.5 or y<x/2',
+    labelXmin: 'x minimum', labelXmax: 'x maximum', labelYmin: 'y minimum', labelYmax: 'y maximum',
+    labelGrid: 'Grid resolution', renderBtn: 'Generate plot', autoRangeBtn: 'Suggest plot range',
+    editorMsgDefault: 'After making changes, click “Generate plot”.',
+    howToTitle: 'How to use',
+    howToText: '1. Upload an image, paste an image, or paste a function description directly.<br>2. The AI will try to extract the density, support, and integration region; you can still revise them manually afterward.<br>3. Click “Generate plot” to view the inputs on the left, the 3D surface in the center, and the xy-plane projection on the right at the same time.',
+    surfaceTitle: '3D Density Surface, Base Region, and Probability Solid',
+    legendBlue: 'Blue surface: the full density surface', legendYellow: 'Yellow base: projection of the original region D onto the xy-plane',
+    legendPinkBase: 'Pink base: projection of D∩support onto the xy-plane', legendPinkWall: 'Translucent pink side walls: connect the effective base region to the density surface',
+    examplesTitle: 'Quick examples', exTriangleBtn: 'Constant density on a triangular region', exGaussianBtn: 'Standard bivariate normal distribution', exExpBtn: 'Independent exponentials on the first quadrant', exLinearxyBtn: 'Linear density: ', exLinearx2yBtn: 'Nonlinear density: ', exDiskBtn: 'Uniform distribution on a disk',
+    projectionTitle: 'Projection of the Support, Original Region, and Effective Region',
+    legendWhite: 'White: outside the support and outside the original region D', legendPaleYellow: 'Light yellow: inside D but outside the support', legendPaleBlue: 'Light blue: inside the support but outside D', legendPaleRed: 'Light red: inside the intersection of the support and D, so it truly contributes to the integral',
+    checkTitle: 'Automatic Checks and Regional Integral', statTotal: 'Approximate total integral', statRegion: 'Integral over the region', statNeg: 'Negative values detected',
+    waiting: 'Awaiting calculation.', yes: 'Yes', no: 'No',
+    parseEmpty: 'The text input is empty.',
+    parseMessage: 'The tool has extracted a candidate formula and support from the text. Please review them manually.', parseNoFormula: 'A reliable formula could not be extracted. Please enter it manually.',
+    editorModified: 'Your inputs have changed. Click “Generate plot” to update the plots on the right.',
+    autoRangeFromSupport: 'The x- and y-ranges were suggested automatically from the support. Click “Generate plot” to view the result.',
+    autoRangeGaussian: 'Suggested viewing window for the standard bivariate normal: [-3,3]×[-3,3]. Click “Generate plot”.',
+    autoRangeExp: 'Suggested viewing window for a first-quadrant exponential density: [0,5]×[0,5]. Click “Generate plot”.',
+    autoRangeFail: 'Clear bounds could not be extracted from the current support. You can set the plotting range manually, or rewrite the support in a form such as 0<=x<=1, 0<=y<=x and try again.',
+    plotlyLoadFail: 'Plotly failed to load.', mathLoadFail: 'math.js failed to load.', illegalRange: 'Invalid plotting range: each maximum must be greater than the corresponding minimum.', calcFail: 'Computation failed: ',
+    totalSurface: 'Full density surface', rawRegionBase: 'Original region D (base)', interBase: 'Intersection D∩support (base)', effectiveBody: 'Effective integral body', sideWall: 'Closed prism side wall',
+    sceneX: 'x', sceneY: 'y', sceneZ: 'f(x,y)',
+    noRegionValid: 'No integration region D is currently provided, so the page shows only the original density surface (blue), without the region, the intersection, or the probability solid.',
+    noRegionInvalid: 'No integration region D is currently provided, so the page shows only the original density surface (blue). Also note that the current function may not be a valid bivariate density, or the plotting window may not cover most of the probability mass.',
+    validStatus: 'Under the current settings, the function approximately satisfies the two key conditions for a bivariate probability density: nonnegativity and total integral close to 1. In the 3D plot, the yellow base shows the original region <code>D</code>, the pink base shows <code>D∩support</code>, and the translucent pink side walls connect the effective base region to the density surface.',
+    invalidStatus: 'The current function may not be a valid bivariate density, or the plotting window may not cover most of the probability mass. The 3D plot still shows the original region, the intersection base, and the corresponding translucent solid.',
+    updated: 'The plot has been updated. After making further changes, click “Generate plot” again.',
+    fixInput: 'Please correct the input and click “Generate plot” again. The previous successful plot has been preserved.',
+    cleared: 'Text cleared.'
+  }
+};
+let currentLang = 'zh';
+function t(key){ return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.zh[key]) || key; }
+function setText(id, value){ const el = document.getElementById(id); if(el) el.textContent = value; }
+function setHTML(id, value){ const el = document.getElementById(id); if(el) el.innerHTML = value; }
+function switchLanguage(lang){
+  currentLang = lang === 'en' ? 'en' : 'zh';
+  try{ updateLanguageUI(); }catch(e){ console.error('Language UI update failed:', e); }
+  try{ renderUsageFormula(); }catch(e){}
+  try{ renderLatexBox(); }catch(e){}
+  try{ renderNow(); }catch(e){ console.error('Render after language switch failed:', e); }
+}
+function updateLanguageUI(){
+  document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
+  document.title = t('pageTitle');
+  const map = ['titleAccent','titleRest','pageSub','panelInputTitle','imageToolsTitle','labelProblemText','labelCurrentDensity','labelSupport','labelRegion','labelXmin','labelXmax','labelYmin','labelYmax','labelGrid','howToTitle','surfaceTitle','examplesTitle','projectionTitle','checkTitle','statTotal','statRegion','statNeg','legendBlue','legendYellow','legendPinkBase','legendPinkWall','legendWhite','legendPaleYellow','legendPaleBlue','legendPaleRed'];
+  map.forEach(id=>setHTML(id, t(id)));
+  setHTML('howToText', t('howToText'));
+  if(els.problemText) els.problemText.placeholder=t('problemPlaceholder');
+  if(els.imageDropHint && !els.imageDropzone.classList.contains('has-image')) els.imageDropHint.textContent=t('imageDropHint');
+  if(els.support) els.support.placeholder=t('supportPlaceholder');
+  if(els.region) els.region.placeholder=t('regionPlaceholder');
+  if(els.pickImageBtn) els.pickImageBtn.textContent=t('imagePickBtn');
+  if(els.recognizeBtn) els.recognizeBtn.textContent=t('imageRecognizeBtn');
+  if(els.clearImageBtn) els.clearImageBtn.textContent=t('imageClearBtn');
+  if(els.parseBtn) els.parseBtn.textContent=t('parseBtn');
+  if(els.clearProblemBtn) els.clearProblemBtn.textContent=t('clearProblemBtn');
+  if(els.renderBtn) els.renderBtn.textContent=t('renderBtn');
+  if(els.autoRangeBtn) els.autoRangeBtn.textContent=t('autoRangeBtn');
+  if(els.parseMsg){
+    const parseMsgMap = {
+      [I18N.zh.parseMsgDefault]: 'parseMsgDefault',
+      [I18N.en.parseMsgDefault]: 'parseMsgDefault',
+      [I18N.zh.parseMessage]: 'parseMessage',
+      [I18N.en.parseMessage]: 'parseMessage',
+      [I18N.zh.parseNoFormula]: 'parseNoFormula',
+      [I18N.en.parseNoFormula]: 'parseNoFormula',
+      [I18N.zh.parseEmpty]: 'parseEmpty',
+      [I18N.en.parseEmpty]: 'parseEmpty',
+      [I18N.zh.cleared]: 'cleared',
+      [I18N.en.cleared]: 'cleared'
+    };
+    const parseKey = parseMsgMap[els.parseMsg.textContent.trim()] || 'parseMsgDefault';
+    els.parseMsg.textContent = t(parseKey);
+  }
+  setText('exTriangleBtn', t('exTriangleBtn'));
+  setText('exGaussianBtn', t('exGaussianBtn'));
+  setText('exExpBtn', t('exExpBtn'));
+  const exLinearxyBtn = document.getElementById('exLinearxyBtn');
+  if(exLinearxyBtn) exLinearxyBtn.innerHTML = t('exLinearxyBtn') + '<span class="btn-math">x+y</span>';
+  const exLinearx2yBtn = document.getElementById('exLinearx2yBtn');
+  if(exLinearx2yBtn) exLinearx2yBtn.innerHTML = t('exLinearx2yBtn') + '<span class="btn-math">6x<sup>2</sup>y</span>';
+  setText('exDiskBtn', t('exDiskBtn'));
+  const zhBtn = document.getElementById('langZhBtn');
+  const enBtn = document.getElementById('langEnBtn');
+  if(zhBtn) zhBtn.className = currentLang==='zh' ? 'primary lang-btn' : 'lang-btn';
+  if(enBtn) enBtn.className = currentLang==='en' ? 'primary lang-btn' : 'lang-btn';
+}
+const els={
+  imageDropzone:document.getElementById('imageDropzone'),
+  imageDropHint:document.getElementById('imageDropHint'),
+  imageInput:document.getElementById('imageInput'),
+  pickImageBtn:document.getElementById('pickImageBtn'),
+  recognizeBtn:document.getElementById('recognizeBtn'),
+  clearImageBtn:document.getElementById('clearImageBtn'),
+  imageStatus:document.getElementById('imageStatus'),
+  problemText:document.getElementById('problemText'),
+  parseBtn:document.getElementById('parseBtn'),
+  clearProblemBtn:document.getElementById('clearProblemBtn'),
+  parseMsg:document.getElementById('parseMsg'),
+  formula:document.getElementById('formula'),
+  latexBox:document.getElementById('latexBox'),
+  support:document.getElementById('support'),
+  region:document.getElementById('region'),
+  xmin:document.getElementById('xmin'),
+  xmax:document.getElementById('xmax'),
+  ymin:document.getElementById('ymin'),
+  ymax:document.getElementById('ymax'),
+  gridn:document.getElementById('gridn'),
+  renderBtn:document.getElementById('renderBtn'),
+  autoRangeBtn:document.getElementById('autoRangeBtn'),
+  editorMsg:document.getElementById('editorMsg'),
+  integralBadge:document.getElementById('integralBadge'),
+  regionIntegralBadge:document.getElementById('regionIntegralBadge'),
+  negativeBadge:document.getElementById('negativeBadge'),
+  statusAlert:document.getElementById('statusAlert'),
+  surfacePlot:document.getElementById('surfacePlot'),
+  heatmapPlot:document.getElementById('heatmapPlot'),
+  usageIntegral:document.getElementById('usageIntegral')
+};
+
+const AI_RECOGNITION_ENDPOINT='/.netlify/functions/recognize-density';
+let recognitionImageDataUrl='';
+
+function setImageStatus(message,mode=''){
+  if(!els.imageStatus) return;
+  els.imageStatus.textContent=message;
+  els.imageStatus.style.color = mode==='error' ? '#991b1b' : mode==='success' ? '#166534' : 'var(--muted)';
+}
+function setRecognitionImage(dataUrl){
+  recognitionImageDataUrl=dataUrl||'';
+  if(!els.imageDropzone||!els.imageDropHint) return;
+  if(recognitionImageDataUrl){
+    els.imageDropzone.classList.add('has-image');
+    els.imageDropzone.innerHTML='<img alt="识别图片预览" src="'+recognitionImageDataUrl+'" />';
+    setImageStatus(t('imageStatusReady'));
+  }else{
+    els.imageDropzone.classList.remove('has-image');
+    els.imageDropzone.innerHTML='<div class="empty-text" id="imageDropHint">'+t('imageDropHint')+'</div>';
+    els.imageDropHint=document.getElementById('imageDropHint');
+    setImageStatus(t('imageStatusDefault'));
+  }
+}
+function readFileAsDataUrl(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=async()=>{
+      try{
+        const compressed=await compressImageDataUrl(String(reader.result||''));
+        resolve(compressed);
+      }catch(err){
+        resolve(reader.result);
+      }
+    };
+    reader.onerror=()=>reject(new Error('read-image-failed'));
+    reader.readAsDataURL(file);
+  });
+}
+async function compressImageDataUrl(dataUrl){
+  if(!dataUrl||typeof dataUrl!=='string'||!dataUrl.startsWith('data:image/')) return dataUrl;
+  const img=await loadImageFromDataUrl(dataUrl);
+  const maxSide=1600;
+  const scale=Math.min(1,maxSide/Math.max(img.naturalWidth||img.width||1,img.naturalHeight||img.height||1));
+  const w=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));
+  const h=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));
+  const canvas=document.createElement('canvas');
+  canvas.width=w; canvas.height=h;
+  const ctx=canvas.getContext('2d');
+  ctx.drawImage(img,0,0,w,h);
+  return canvas.toDataURL('image/jpeg',0.9);
+}
+function loadImageFromDataUrl(dataUrl){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>resolve(img);
+    img.onerror=()=>reject(new Error('image-load-failed'));
+    img.src=dataUrl;
+  });
+}
+function normalizeRecognizedFormula(value){
+  let s=(value||'').trim();
+  if(!s) return '';
+  if(!/^f\s*[\(\[]?\s*x\s*,\s*y\s*[\)\]]?\s*=/.test(s)) s='f(x,y)='+s;
+  return s;
+}
+function extractJsonObject(text){
+  const raw=(text||'').trim();
+  if(!raw) throw new Error('empty-model-response');
+  try{return JSON.parse(raw);}catch(e){}
+  const match=raw.match(/\{[\s\S]*\}/);
+  if(match) return JSON.parse(match[0]);
+  throw new Error('json-parse-failed');
+}
+function handleRecognizedPayload(payload){
+  const formula=normalizeRecognizedFormula(payload.formula_raw||payload.formula_expr||payload.formula||'');
+  const support=(payload.support||'').trim();
+  const region=(payload.region||'').trim();
+  const sourceText=(payload.source_text||'').trim();
+  if(formula) els.formula.value=formula;
+  if(support) els.support.value=support;
+  if(region) els.region.value=region;
+  if(sourceText) els.problemText.value=sourceText;
+  renderLatexBox();
+  els.editorMsg.textContent=region?t('imageStatusSuccess'):t('imageStatusNoRegion');
+  setImageStatus(region?t('imageStatusSuccess'):t('imageStatusNoRegion'),'success');
+}
+async function recognizeCurrentImage(){
+  if(!recognitionImageDataUrl){
+    setImageStatus(t('imageStatusNeedImage'),'error');
+    return;
+  }
+  els.recognizeBtn.disabled=true;
+  setImageStatus(t('imageStatusWorking'));
+  try{
+    const response=await fetch(AI_RECOGNITION_ENDPOINT,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({imageDataUrl:recognitionImageDataUrl})
+    });
+    const raw=await response.text();
+    let data={};
+    try{ data=raw?JSON.parse(raw):{}; }
+    catch(parseErr){
+      const preview=(raw||'').replace(/\s+/g,' ').slice(0,120);
+      throw new Error('server-non-json: '+preview);
+    }
+    if(!response.ok) throw new Error(data&&data.error?data.error:'request-failed');
+    handleRecognizedPayload(data);
+  }catch(err){
+    setImageStatus(t('imageStatusFailed')+(err&&err.message?err.message:'unknown-error'),'error');
+  }finally{
+    els.recognizeBtn.disabled=false;
+  }
+}
+async function handleImageFile(file){
+  if(!file) return;
+  const dataUrl=await readFileAsDataUrl(file);
+  setRecognitionImage(dataUrl);
+}
+function findImageInClipboard(event){
+  const items=(event.clipboardData&&event.clipboardData.items)?Array.from(event.clipboardData.items):[];
+  for(const item of items){
+    if(item.type&&item.type.startsWith('image/')) return item.getAsFile();
+  }
+  return null;
+}
+
+function markDirty(){renderLatexBox(); els.editorMsg.textContent=t('editorModified');}
+function setExample(kind){
+  if(kind==='triangle'){
+    els.formula.value='f(x,y)=2';
+    els.support.value='0<y<x<1';
+    els.region.value='0<x<0.5, 0<y<0.5';
+    els.xmin.value=0; els.xmax.value=1; els.ymin.value=0; els.ymax.value=1;
+  } else if(kind==='gaussian'){
+    els.formula.value='f(x,y)=(1/(2*pi))*exp(-(x^2+y^2)/2)';
+    els.support.value='';
+    els.region.value='x^2+y^2<1';
+    els.xmin.value=-3; els.xmax.value=3; els.ymin.value=-3; els.ymax.value=3;
+  } else if(kind==='expq1'){
+    els.formula.value='f(x,y)=exp(-(x+y))';
+    els.support.value='x>0, y>0';
+    els.region.value='x+y<2';
+    els.xmin.value=0; els.xmax.value=5; els.ymin.value=0; els.ymax.value=5;
+  } else if(kind==='linearxy'){
+    els.formula.value='f(x,y)=x+y';
+    els.support.value='0<x<1, 0<y<1';
+    els.region.value='0<x<0.6, 0<y<0.4';
+    els.xmin.value=0; els.xmax.value=1; els.ymin.value=0; els.ymax.value=1;
+  } else if(kind==='linearx2y'){
+    els.formula.value='f(x,y)=6*x^2*y';
+    els.support.value='0<x<1, 0<y<1';
+    els.region.value='-0.5<x<0.6, -0.5<y<0.5';
+    els.xmin.value=0; els.xmax.value=1; els.ymin.value=0; els.ymax.value=1;
+  } else if(kind==='diskuniform'){
+    els.formula.value='f(x,y)=1/pi';
+    els.support.value='x^2+y^2<1';
+    els.region.value='0<x<0.8, 0<y<0.6';
+    els.xmin.value=-1.2; els.xmax.value=1.2; els.ymin.value=-1.2; els.ymax.value=1.2;
+  }
+  markDirty();
+  renderNow();
+}
+function setStatus(message,mode){els.statusAlert.className='alert'+(mode==='error'?' error':mode==='success'?' success':'');els.statusAlert.innerHTML=message;}
+function renderNow(){
+  try{
+    if(typeof Plotly==='undefined') throw new Error(t('plotlyLoadFail'));
+    if(typeof math==='undefined') throw new Error(t('mathLoadFail'));
+    const exprText=latexToPlainExpr(els.formula.value);
+    const xMin=Number(els.xmin.value),xMax=Number(els.xmax.value),yMin=Number(els.ymin.value),yMax=Number(els.ymax.value),n=Math.max(20,Math.min(160,Number(els.gridn.value)||80));
+    if(!(xMax>xMin)||!(yMax>yMin)) throw new Error(t('illegalRange'));
+    const result=buildSurface(exprText,els.support.value,xMin,xMax,yMin,yMax,n);
+    const supportMask=result.Z.map(row=>row.map(v=>v!==null?1:0));
+    const hasRegionInput=preprocessSupport(els.region.value)!=='';
+    let rawRegionMask=null,effectiveMask=null,regionSurface=null,rawRegionBasePlane=null,intersectionBasePlane=null,regionIntegral=null,projection=null,prismSegments=[];
+    if(hasRegionInput){
+      rawRegionMask=buildBooleanMask(result.xs,result.ys,els.region.value,false);
+      effectiveMask=rawRegionMask.map((row,j)=>row.map((v,i)=>(v===1&&supportMask[j][i]===1?1:0)));
+      regionSurface=applyMaskToSurface(result.Z,effectiveMask);
+      rawRegionBasePlane=buildBasePlane(rawRegionMask);
+      intersectionBasePlane=buildBasePlane(effectiveMask);
+      regionIntegral=approximateRegionIntegral(result.Z,effectiveMask,xMin,xMax,yMin,yMax);
+      projection=buildProjectionMap(supportMask,rawRegionMask,effectiveMask);
+      prismSegments=buildPrismEdgeSegments(result.xs,result.ys,effectiveMask,regionSurface);
+    }
+    const data=[{type:'surface',x:result.xs,y:result.ys,z:result.Z,opacity:0.45,showscale:false,colorscale:'Blues',contours:{z:{show:true,usecolormap:true,project:{z:true}}},name:t('totalSurface')}];
+    if(hasRegionInput&&rawRegionBasePlane&&intersectionBasePlane&&regionSurface){
+      data.push({type:'surface',x:result.xs,y:result.ys,z:rawRegionBasePlane,opacity:0.55,showscale:false,colorscale:[[0,'#fde68a'],[1,'#fde68a']],name:t('rawRegionBase')},{type:'surface',x:result.xs,y:result.ys,z:intersectionBasePlane,opacity:0.92,showscale:false,colorscale:[[0,'#fecaca'],[1,'#fecaca']],name:t('interBase')},{type:'surface',x:result.xs,y:result.ys,z:regionSurface,opacity:0.85,showscale:false,colorscale:[[0,'#fecaca'],[1,'#f87171']],name:t('effectiveBody')});
+      prismSegments.forEach((seg,idx)=>{data.push({type:'mesh3d',x:seg.x,y:seg.y,z:seg.z,i:[0,0],j:[1,2],k:[2,3],color:'#fda4af',opacity:0.35,flatshading:true,name:idx===0?t('sideWall'):undefined,showscale:false,hoverinfo:'skip'})});
+    }
+    Plotly.newPlot(els.surfacePlot,data,{autosize:true,height:560,margin:{l:0,r:0,t:8,b:0},scene:{xaxis:{title:t('sceneX')},yaxis:{title:t('sceneY')},zaxis:{title:t('sceneZ')}}},{responsive:true,displaylogo:false});
+    const heatmapZ=hasRegionInput&&projection?projection:supportMask;
+    Plotly.newPlot(els.heatmapPlot,[{type:'heatmap',x:result.xs,y:result.ys,z:heatmapZ,zmin:0,zmax:hasRegionInput?3:1,showscale:false,colorscale:hasRegionInput?[[0.00,'#ffffff'],[0.24,'#ffffff'],[0.25,'#dbeafe'],[0.49,'#dbeafe'],[0.50,'#fef3c7'],[0.74,'#fef3c7'],[0.75,'#fecaca'],[1.00,'#fecaca']]:[[0,'#ffffff'],[0.49,'#ffffff'],[0.5,'#dbeafe'],[1,'#dbeafe']]}],{autosize:true,height:300,margin:{l:0,r:0,t:8,b:0},xaxis:{title:'x'},yaxis:{title:'y'}},{responsive:true,displaylogo:false});
+    els.integralBadge.textContent=result.totalIntegral.toFixed(6);
+    els.regionIntegralBadge.textContent=hasRegionInput?regionIntegral.toFixed(6):'-';
+    els.negativeBadge.textContent=result.hasNegative?t('yes'):t('no');
+    els.negativeBadge.className='badge '+(result.hasNegative?'bad':'ok');
+    const roughlyValid=!result.hasNegative&&Math.abs(result.totalIntegral-1)<0.08;
+    if(!hasRegionInput){
+      if(roughlyValid) setStatus(t('noRegionValid'),'success');
+      else setStatus(t('noRegionInvalid'),'');
+    }else if(roughlyValid){
+      setStatus(t('validStatus'),'success');
+    }else{
+      setStatus(t('invalidStatus'),'');
+    }
+    els.editorMsg.textContent=t('updated');
+  }catch(e){
+    setStatus(t('calcFail')+(e&&e.message?e.message:e),'error');
+    els.editorMsg.textContent=t('fixInput');
+  }
+}
+
+els.pickImageBtn.addEventListener('click',()=>els.imageInput.click());
+els.imageInput.addEventListener('change',async (e)=>{const file=e.target.files&&e.target.files[0]; if(file) await handleImageFile(file);});
+els.clearImageBtn.addEventListener('click',()=>{setRecognitionImage(''); els.imageInput.value=''; setImageStatus(t('imageStatusCleared'));});
+els.recognizeBtn.addEventListener('click',recognizeCurrentImage);
+els.imageDropzone.addEventListener('click',()=>els.imageInput.click());
+els.imageDropzone.addEventListener('dragover',(e)=>{e.preventDefault();});
+els.imageDropzone.addEventListener('drop',async (e)=>{e.preventDefault(); const file=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(file&&file.type.startsWith('image/')) await handleImageFile(file);});
+els.imageDropzone.addEventListener('paste',async (e)=>{const file=findImageInClipboard(e); if(file){e.preventDefault(); await handleImageFile(file);}});
+
+els.parseBtn.addEventListener('click',()=>{const parsed=parseProblemText(els.problemText.value);if(parsed.formula)els.formula.value=parsed.formula;if(parsed.support)els.support.value=parsed.support;els.parseMsg.textContent=parsed.message;renderLatexBox();});
+els.clearProblemBtn.addEventListener('click',()=>{els.problemText.value='';els.parseMsg.textContent=t('cleared');});
+els.formula.addEventListener('input',markDirty);
+[els.support,els.region,els.xmin,els.xmax,els.ymin,els.ymax,els.gridn].forEach(el=>{el.addEventListener('input',markDirty);el.addEventListener('change',markDirty);});
+document.querySelectorAll('[data-example]').forEach(btn=>btn.addEventListener('click',()=>setExample(btn.getAttribute('data-example'))));
+els.renderBtn.addEventListener('click',renderNow);
+els.autoRangeBtn.addEventListener('click',autoRecommendRange);
+function renderUsageFormula(){
+  if(typeof katex!=='undefined'){
+    try{katex.render("\\iint_D f(x,y)\\,dx\\,dy", els.usageIntegral, {throwOnError:false, displayMode:false}); return;}catch(e){}
+  }
+  els.usageIntegral.textContent="∬_D f(x,y) dx dy";
+}
+els.parseMsg.textContent=t('parseMsgDefault');
+els.editorMsg.textContent=t('editorMsgDefault');
+document.getElementById('langZhBtn').addEventListener('click',()=>switchLanguage('zh'));
+document.getElementById('langEnBtn').addEventListener('click',()=>switchLanguage('en'));
+
+function initializeDefaultView(){
+  try{ updateLanguageUI(); }catch(e){ console.error('Initial language UI update failed:', e); }
+  setRecognitionImage('');
+  setExample('triangle');
+  els.editorMsg.textContent=t('editorMsgDefault');
+  renderUsageFormula();
+  renderLatexBox();
+}
+
+function initializeWhenLibrariesReady(retries=120){
+  const libsReady = (typeof katex!=='undefined') && (typeof Plotly!=='undefined') && (typeof math!=='undefined');
+  if(libsReady){
+    initializeDefaultView();
+    return;
+  }
+  if(retries<=0){
+    initializeDefaultView();
+    return;
+  }
+  setTimeout(()=>initializeWhenLibrariesReady(retries-1), 100);
+}
+
+if(document.readyState==='complete'){
+  initializeWhenLibrariesReady();
+}else{
+  window.addEventListener('load', ()=>initializeWhenLibrariesReady(), {once:true});
+}
+</script>
+</body>
+</html>
